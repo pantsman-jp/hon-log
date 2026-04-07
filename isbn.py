@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def fetch_html(url):
+def get_html(url):
     return requests.get(url).text
 
 
@@ -14,13 +14,19 @@ def find_isbn_tag(soup):
     return soup.find("input", {"id": "lid_isbn"})
 
 
+def has_value_attr(tag):
+    return (tag is not None) and ("value" in tag.attrs)
+
+
 def get_value_attr(tag):
-    return tag["value"] if tag and "value" in tag.attrs else None
+    if has_value_attr(tag):
+        return tag["value"]
+    return ""
 
 
-def extract_isbn(soup):
-    return get_value_attr(find_isbn_tag(soup))
+def get_isbn(url):
+    return get_value_attr(find_isbn_tag(parse_html(get_html(url))))
 
 
-def fetch_isbn(url):
-    return extract_isbn(parse_html(fetch_html(url)))
+# print(get_isbn("https://www.lib.kyutech.ac.jp/opac/ja/volume/891128"))
+# print(get_isbn("https://www.lib.kyutech.ac.jp/opac/volume/231128"))
