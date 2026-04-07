@@ -102,6 +102,13 @@ def update_review(conn, row_id, review):
     conn.execute("UPDATE loans SET review = ? WHERE id = ?", (review, row_id))
 
 
+def fetch_rows(conn):
+    cursor = conn.execute(
+        "SELECT id, title, author, publisher, loan_date, image_path, review FROM loans ORDER BY loan_date DESC"
+    )
+    return list(cursor)
+
+
 def initialize_db(db_path, csv_path):
     with connect(db_path) as conn:
         create_table(conn)
