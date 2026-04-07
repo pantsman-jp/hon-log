@@ -2,4 +2,6 @@
 .venv/
 __pycache__/
 *.csv
-img/
+*.jpg
+*.db
+*.db-journal
