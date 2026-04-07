@@ -1,29 +1,38 @@
 # CHANGELOG
 
-## v0.2.0 (2026-04-07)
-### Added
-- CSV import functionality for loan history
-- SQLite database integration (`loans.db`)
-- ISBN extraction from OPAC HTML
-- Thumbnail image download from NDL Search
-- Image storage in `img/` directory
-- Fallback image support (`img/no-image.png`)
-- Review (user comment) field support
-- PySide6 GUI for displaying book thumbnails
-- Grid layout (5 columns) for book display
-- Tooltip on hover (title, author, publisher, loan date)
-- Click interaction for editing reviews
-- Update button to import additional CSV data
+## v0.3.0 (2026-04-07)
+### 追加
+- `fetch_rows` 関数を `db.py` に追加し、GUI から全行データを簡単に取得可能に
+- PySide6 GUI をクラスベースにリファクタリング
+- UI の更新処理で既存のレビューが消えないよう修正
+- 書影が存在しない場合は常に `img/no-image.png` を表示するよう統一
 
-### Changed
-- Database schema updated to include:
-  - `isbn`
-  - `image_path`
-  - `review`
-- CSV import now preserves existing data
-- Duplicate prevention using `(material_id, loan_date)` constraint
-- Image handling unified via `thumbnail.py`
-- ISBN retrieval separated into `isbn.py`
+### 変更
+- DB スキーマは v0.2.0 から変更なし
+- CSV インポート時の既存データ保持を強化
+- UI 側でのレビュー保存と即時反映が可能に
+
+## v0.2.0 (2026-04-07)
+### 追加
+- 貸出履歴 CSV インポート機能
+- SQLite データベース統合（`loans.db`）
+- OPAC HTML から ISBN 抽出
+- NDL 検索からサムネイル画像取得
+- 画像を `img/` に保存
+- 書影がない場合の代替画像 (`img/no-image.png`) サポート
+- レビュー（ユーザコメント）フィールド
+- PySide6 GUI で書籍サムネイル表示
+- 5列グリッドレイアウトで書籍表示
+- ホバー時にツールチップ表示（タイトル・著者・出版社・貸出日）
+- クリックでレビュー編集可能
+- 更新ボタンで追加 CSV データインポート可能
+
+### 変更
+- データベーススキーマに `isbn`, `image_path`, `review` を追加
+- CSV インポート時に既存データを保持
+- `(material_id, loan_date)` 制約による重複防止
+- 画像処理を `thumbnail.py` に統一
+- ISBN 取得を `isbn.py` に分離
 
 ## v0.1.0 (2026-04-07)
-- start project
+- プロジェクト開始
