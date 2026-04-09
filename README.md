@@ -1,5 +1,7 @@
 # ほんろぐ
 
+[ENGLISH](https://github.com/pantsman-jp/hon-log/blob/docs/README.en.md)
+
 ## 概要
 本アプリは、[九州工業大学図書館の貸出履歴（CSV）](https://www.lib.kyutech.ac.jp/library/ja/node/2061)をもとに以下を行うデスクトップアプリケーションです。
 
