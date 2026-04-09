@@ -16,14 +16,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from db import (
+from src.db import (
     connect,
     fetch_rows,
     initialize_db,
     update_review,
 )
 
-DB_PATH = "loans.db"
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+DB_PATH = os.path.join(ROOT_DIR, "loans.db")
 
 
 class BookBrowser(QWidget):

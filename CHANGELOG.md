@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v0.3.1 (2026-04-09)
+### 追加
+- ソースコードを `src/` 配下に移動し、プロジェクト構成を整理
+- 書影キャッシュを `cache/img/` に統一
+
+### 変更
+- `README.md` の起動手順を `python -m src.main` に更新
+- 書影保存先を `cache/img/{isbn}.jpg` / `cache/img/no-image.png` に修正
+- 旧ルート直下の Python 実行ファイルを整理
+
 ## v0.3.0 (2026-04-07)
 ### 追加
 - `fetch_rows` 関数を `db.py` に追加し、GUI から全行データを簡単に取得可能に

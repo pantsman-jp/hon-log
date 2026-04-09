@@ -1,10 +1,13 @@
 from io import BytesIO
-from os import makedirs
+import os
 
 from PIL import Image
 from requests import get
 
-from isbn import get_isbn
+from src.isbn import get_isbn
+
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+IMG_DIR = os.path.join(ROOT_DIR, "cache", "img")
 
 
 def build_thumbnail_url(isbn):
@@ -23,8 +26,8 @@ def open_image(image_bytes):
 
 
 def save_image(img, isbn):
-    makedirs("img", exist_ok=True)
-    path = "img/" + isbn + ".jpg"
+    os.makedirs(IMG_DIR, exist_ok=True)
+    path = os.path.join(IMG_DIR, f"{isbn}.jpg")
     img.save(path)
     return path
 
@@ -34,6 +37,3 @@ def process_url(url):
     if isbn == "":
         return
     return save_image(open_image(get_image(build_thumbnail_url(isbn))), isbn)
-
-
-# process_url("https://www.lib.kyutech.ac.jp/opac/volume/887096")

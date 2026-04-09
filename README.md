@@ -11,16 +11,16 @@
 
 ## 主な機能
 
-### 1. CSV → DB変換
-- CSVを読み込み、SQLiteデータベースへ登録
+### 1. CSV -> DB変換
+- CSV を読み込み、SQLite データベースへ登録
 - 重複データは登録されない（material_id + loan_date で判定）
 
-### 2. ISBN取得
-- OPACのURLからHTMLを取得
-- ISBNを自動抽出
+### 2. ISBN 取得
+- OPAC のURL から HTML を取得
+- ISBN を自動抽出
 
 ### 3. 書影取得
-- ISBNから書影URLを生成
+- ISBN から書影 URL を生成
 - 画像をダウンロードして保存
 
 ### 4. GUI表示
@@ -28,13 +28,13 @@
 - 下に書名を表示
 
 ### 5. インタラクション
-- ホバー → 詳細情報表示
-- クリック → 感想入力・保存
+- ホバー -> 詳細情報表示
+- クリック -> 感想入力・保存
 
 ## 動作環境
 `Python 3.12`
 
-## 必要パッケージ
+### 必要パッケージ
 ```zsh
 pip install -r requirements.txt
 ```
@@ -43,25 +43,25 @@ pip install -r requirements.txt
 
 ### 1. 初回起動
 ```zsh
-python main.py
+python -m src.main
 ```
 
-- CSV選択ダイアログが表示される
-- CSVを選択するとDBが作成される
+- CSV 選択ダイアログが表示される
+- CSV を選択すると D が作成される
 
 #### 注意
-初回起動時はデータベース新規作成のため、大変時間がかかります。
+初回起動時は書影取得のため、大変時間がかかります。
 
 ### 2. 通常起動（2回目以降）
 ```zsh
-python app.py
+python -m src.main
 ```
 
-- DBからデータを読み込み表示
+- DB からデータを読み込み表示
 
 ### 3. 更新
 - 「更新」ボタンをクリック
-- 新しいCSVを選択
+- 新しい CSV を選択
 - 新規データのみ追加される（既存データ保持）
 
 ## CSV仕様
@@ -76,7 +76,7 @@ python app.py
 - URL
 
 ### 注意
-- ヘッダの空白やBOMは内部で正規化される
+- ヘッダの空白や BOM は内部で正規化される
 
 ## DB仕様
 | カラム名 | 説明 |
@@ -98,12 +98,12 @@ python app.py
 
 ### 保存先
 ```
-img/{isbn}.jpg
+cache/img/{isbn}.jpg
 ```
 
 ### 書影がない場合
 ```
-img/no-image.png
+cache/img/no-image.png
 ```
 
 ## 注意

@@ -2,8 +2,12 @@ import os
 import sqlite3
 from csv import DictReader
 
-from isbn import get_isbn
-from thumbnail import process_url
+from src.isbn import get_isbn
+from src.thumbnail import process_url
+
+
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+IMG_DIR = os.path.join(ROOT_DIR, "cache", "img")
 
 
 def connect(db_path):
@@ -26,11 +30,11 @@ def normalize_row(row):
 
 def build_image_path(isbn):
     if isbn == "":
-        return "img/no-image.png"
-    path = "img/" + isbn + ".jpg"
+        return os.path.join(IMG_DIR, "no-image.png")
+    path = os.path.join(IMG_DIR, f"{isbn}.jpg")
     if os.path.exists(path):
         return path
-    return "img/no-image.png"
+    return os.path.join(IMG_DIR, "no-image.png")
 
 
 def fetch_and_store_image(url):
@@ -120,6 +124,3 @@ def enrich_isbn(db_path):
     with connect(db_path) as conn:
         fill_isbn(conn)
         conn.commit()
-
-
-# initialize_db("loans.db", "loan_history.csv")
