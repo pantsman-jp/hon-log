@@ -1,16 +1,20 @@
 import os
 import sqlite3
 from csv import DictReader
+from concurrent.futures import ThreadPoolExecutor
 
 from src.isbn import get_isbn
 from src.thumbnail import process_url
+from src.utils import get_data_path, resource_path
 
 
-ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-IMG_DIR = os.path.join(ROOT_DIR, "assets", "img")
+IMG_DIR = get_data_path("assets", "img")
 
 
 def connect(db_path):
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     return sqlite3.connect(db_path)
 
 
@@ -30,18 +34,27 @@ def normalize_row(row):
 
 def build_image_path(isbn):
     if isbn == "":
-        return os.path.join(IMG_DIR, "no-image.png")
+        return resource_path("assets/img/no-image.png")
     path = os.path.join(IMG_DIR, f"{isbn}.jpg")
     if os.path.exists(path):
         return path
-    return os.path.join(IMG_DIR, "no-image.png")
+    return resource_path("assets/img/no-image.png")
 
 
-def fetch_and_store_image(url):
+def fetch_and_store_image(url, isbn=None):
     try:
-        process_url(url)
+        process_url(url, isbn=isbn)
     except Exception:
         return
+
+
+def download_missing_images(items):
+    if not items:
+        return
+    unique_items = set(items)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        for [url, isbn] in unique_items:
+            executor.submit(fetch_and_store_image, url, isbn)
 
 
 def record_exists(conn, material_id, loan_date):
@@ -52,7 +65,7 @@ def record_exists(conn, material_id, loan_date):
     return cursor.fetchone() is not None
 
 
-def insert_row(conn, row):
+def insert_row(conn, row, missing_images):
     row = normalize_row(row)
     material_id = row.get("資料ID", "")
     loan_date = row.get("貸出日", "")
@@ -60,8 +73,9 @@ def insert_row(conn, row):
         return
     url = row.get("URL", "")
     isbn = get_isbn(url)
-    fetch_and_store_image(url)
     image_path = build_image_path(isbn)
+    if (os.path.basename(image_path) == "no-image.png") and (isbn != ""):
+        missing_images.append((url, isbn))
     conn.execute(
         "INSERT INTO loans (title, loan_date, volume, author, publisher, published_at, material_id, url, isbn, image_path, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
@@ -81,9 +95,11 @@ def insert_row(conn, row):
 
 
 def import_csv(conn, csv_path):
+    missing_images = []
     with open(csv_path, newline="", encoding="utf-8-sig") as f:
         for row in DictReader(f):
-            insert_row(conn, row)
+            insert_row(conn, row, missing_images)
+    download_missing_images(missing_images)
 
 
 def update_isbn(conn, row_id, url):

@@ -23,9 +23,9 @@ from src.db import (
     initialize_db,
     update_review,
 )
+from src.utils import get_data_path, resource_path
 
-ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-DB_PATH = os.path.join(ROOT_DIR, "loans.db")
+DB_PATH = get_data_path("loans.db")
 
 
 class BookBrowser(QWidget):
@@ -71,7 +71,7 @@ class BookBrowser(QWidget):
         self.populate_grid(rows)
 
     def populate_grid(self, rows):
-        for i, row in enumerate(rows):
+        for [i, row] in enumerate(rows):
             widget = self.create_book_widget(row)
             self.grid_layout.addWidget(widget, i // 5, i % 5)
 
@@ -129,17 +129,6 @@ class BookBrowser(QWidget):
             initialize_db(DB_PATH, csv_path)
             self.load_db()
             self.reload_ui()
-
-
-def resource_path(relative_path):
-    if getattr(sys, "frozen", False):
-        if sys.platform == "darwin":  # macOS bundle
-            base_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources")
-        else:
-            base_path = sys._MEIPASS
-    else:
-        base_path = os.path.dirname(os.path.dirname(__file__))
-    return os.path.join(base_path, relative_path)
 
 
 def main():

@@ -1,8 +1,14 @@
 # CHANGELOG
 
 ## v0.4.0 (2026-04-10)
-## 変更
-- Windows への対応
+### 追加
+- `src/utils.py` を追加し、frozen 実行時のリソース / データパス解決を共通化
+
+### 変更
+- CSVインポートの書影取得を `ThreadPoolExecutor` で並列化し、初回読み込み時間を短縮
+- ISBN取得および書影ダウンロードで `requests.Session` をスレッドローカルに再利用
+- `src/main.py` の DB パスを `get_data_path("loans.db")` に変更し、実行形式でも永続的に保存されるように対応
+- 画像パス解決を `resource_path()` に統合し、PyInstaller での Windows / macOS 実行互換性を改善
 
 ## v0.3.2 (2026-04-10)
 ### 変更

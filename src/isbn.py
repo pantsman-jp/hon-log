@@ -1,9 +1,23 @@
+import threading
 import requests
 from bs4 import BeautifulSoup
 
+_thread_local = threading.local()
+
+
+def get_session():
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.headers.update({"User-Agent": "Mozilla/5.0"})
+        _thread_local.session = session
+    return session
+
 
 def get_html(url):
-    return requests.get(url).text
+    response = get_session().get(url, timeout=5)
+    response.raise_for_status()
+    return response.text
 
 
 def parse_html(html):
@@ -26,7 +40,3 @@ def get_value_attr(tag):
 
 def get_isbn(url):
     return get_value_attr(find_isbn_tag(parse_html(get_html(url))))
-
-
-# print(get_isbn("https://www.lib.kyutech.ac.jp/opac/ja/volume/891128"))
-# print(get_isbn("https://www.lib.kyutech.ac.jp/opac/volume/231128"))
