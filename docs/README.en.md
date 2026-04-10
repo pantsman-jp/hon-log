@@ -2,6 +2,8 @@
 
 [日本語](https://github.com/pantsman-jp/hon-log/blob/main/README.md)
 
+The latest version is available [here](https://github.com/pantsman-jp/hon-log/releases/latest).
+
 ## Overview
 This desktop application uses the [Kyushu Institute of Technology Library Loan History (CSV)](https://www.lib.kyutech.ac.jp/library/ja/node/2061) to perform the following tasks:
 
@@ -10,6 +12,8 @@ This desktop application uses the [Kyushu Institute of Technology Library Loan H
 - Retrieve and save book cover images
 - Grid display of book cover list (PySide6)
 - Saving and editing reviews
+
+**An internet connection is required to use the app.**
 
 ## Main Features
 
@@ -82,7 +86,7 @@ Must include the following columns:
 
 ## DB Specifications
 | Column Name | Description |
-| --- | --- |
+| ---: | :--- |
 | id | Primary Key |
 | title | Title |
 | loan_date | Loan Date |
@@ -107,9 +111,6 @@ cache/img/{isbn}.jpg
 ```
 cache/img/no-image.png
 ```
-
-## Note
-- An internet connection is required
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)

@@ -2,6 +2,8 @@
 
 [English](https://github.com/pantsman-jp/hon-log/blob/main/docs/README.en.md)
 
+最新リリースは[こちら](https://github.com/pantsman-jp/hon-log/releases/latest)。
+
 ## 概要
 本アプリは、[九州工業大学図書館の貸出履歴（CSV）](https://www.lib.kyutech.ac.jp/library/ja/node/2061)をもとに以下を行うデスクトップアプリケーションです。
 
@@ -10,6 +12,8 @@
 - 書影画像の取得・保存
 - 書影一覧のグリッド表示（PySide6）
 - 感想（レビュー）の保存・編集
+
+**アプリの使用にはインターネット接続が必要です。**
 
 ## 主な機能
 
@@ -60,7 +64,7 @@ python -m src.main
 ```
 
 - CSV 選択ダイアログが表示される
-- CSV を選択すると D が作成される
+- CSV を選択すると DB が作成される
 
 #### 注意
 初回起動時は書影取得のため、大変時間がかかります。
@@ -93,7 +97,7 @@ python -m src.main
 
 ## DB仕様
 | カラム名 | 説明 |
-| --- | --- |
+| ---: | :--- |
 | id | 主キー |
 | title | タイトル |
 | loan_date | 貸出日 |
@@ -118,9 +122,6 @@ assets/img/{isbn}.jpg
 ```
 assets/img/no-image.png
 ```
-
-## 注意
-- インターネット接続が必要
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)
