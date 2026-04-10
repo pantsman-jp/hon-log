@@ -112,5 +112,8 @@ cache/img/{isbn}.jpg
 cache/img/no-image.png
 ```
 
+## Related
+The app icon was created at <https://favicon.io/favicon-generator/>.
+
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)

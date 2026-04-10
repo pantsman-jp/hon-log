@@ -123,5 +123,8 @@ assets/img/{isbn}.jpg
 assets/img/no-image.png
 ```
 
+## 関連
+アプリのアイコンは <https://favicon.io/favicon-generator/> で作成しました。
+
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)

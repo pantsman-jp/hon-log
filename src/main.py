@@ -1,5 +1,5 @@
-import os
 import sys
+import os
 from functools import partial
 
 from PySide6.QtCore import Qt
@@ -93,7 +93,11 @@ class BookBrowser(QWidget):
 
     def create_image_label(self, path):
         label = QLabel()
-        pixmap = QPixmap(path)
+        full_path = resource_path(path)
+        pixmap = QPixmap(full_path)
+        if pixmap.isNull():
+            fallback_path = resource_path("assets/img/no-image.png")
+            pixmap = QPixmap(fallback_path)
         label.setPixmap(pixmap.scaled(120, 160, Qt.KeepAspectRatio))
         return label
 
@@ -129,7 +133,10 @@ class BookBrowser(QWidget):
 
 def resource_path(relative_path):
     if getattr(sys, "frozen", False):
-        base_path = sys._MEIPASS
+        if sys.platform == "darwin":  # macOS bundle
+            base_path = os.path.join(os.path.dirname(sys.executable), "..", "Resources")
+        else:
+            base_path = sys._MEIPASS
     else:
         base_path = os.path.dirname(os.path.dirname(__file__))
     return os.path.join(base_path, relative_path)
@@ -141,7 +148,6 @@ def main():
     if os.path.exists(icon_path):
         icon = QIcon(icon_path)
         app.setWindowIcon(icon)
-
     browser = BookBrowser()
     if os.path.exists(icon_path):
         browser.setWindowIcon(QIcon(icon_path))
