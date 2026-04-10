@@ -41,6 +41,12 @@ def build_image_path(isbn):
     return resource_path("assets/img/no-image.png")
 
 
+def build_expected_image_path(isbn):
+    if isbn == "":
+        return resource_path("assets/img/no-image.png")
+    return os.path.join(IMG_DIR, f"{isbn}.jpg")
+
+
 def fetch_and_store_image(url, isbn=None):
     try:
         process_url(url, isbn=isbn)
@@ -73,7 +79,7 @@ def insert_row(conn, row, missing_images):
         return
     url = row.get("URL", "")
     isbn = get_isbn(url)
-    image_path = build_image_path(isbn)
+    image_path = build_expected_image_path(isbn)
     if (os.path.basename(image_path) == "no-image.png") and (isbn != ""):
         missing_images.append((url, isbn))
     conn.execute(

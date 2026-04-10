@@ -9,6 +9,8 @@
 - ISBN取得および書影ダウンロードで `requests.Session` をスレッドローカルに再利用
 - `src/main.py` の DB パスを `get_data_path("loans.db")` に変更し、実行形式でも永続的に保存されるように対応
 - 画像パス解決を `resource_path()` に統合し、PyInstaller での Windows / macOS 実行互換性を改善
+- CSV インポート時、未取得書影のため `image_path` に `no-image.png` を保存しないよう修正し、取得済み書影が正しく表示されるように改善
+- ISBN 取得処理で `requests` のタイムアウト/通信失敗をキャッチし、ネットワーク障害時でも起動が停止しないように変更
 
 ## v0.3.2 (2026-04-10)
 ### 変更

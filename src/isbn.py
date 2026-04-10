@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 
 _thread_local = threading.local()
+REQUEST_TIMEOUT = 10
 
 
 def get_session():
@@ -15,9 +16,14 @@ def get_session():
 
 
 def get_html(url):
-    response = get_session().get(url, timeout=5)
-    response.raise_for_status()
-    return response.text
+    if not url:
+        return ""
+    try:
+        response = get_session().get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException:
+        return ""
 
 
 def parse_html(html):
@@ -39,4 +45,7 @@ def get_value_attr(tag):
 
 
 def get_isbn(url):
-    return get_value_attr(find_isbn_tag(parse_html(get_html(url))))
+    html = get_html(url)
+    if not html:
+        return ""
+    return get_value_attr(find_isbn_tag(parse_html(html)))
