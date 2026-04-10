@@ -41,6 +41,17 @@
 pip install -r requirements.txt
 ```
 
+### 実行ファイル化
+- macOS
+```zsh
+pyinstaller src/main.py --windowed --noconfirm --icon=assets/img/icon.icns --add-data "assets/img/no-image.png:assets/img"
+```
+
+- Windows
+```shell
+pyinstaller src/main.py --onefile --noconfirm --icon=assets/img/favicon.ico --add-data "assets/img/no-image.png;assets/img"
+```
+
 ## 使用方法
 
 ### 1. 初回起動

@@ -1,8 +1,9 @@
 import os
+import sys
 from functools import partial
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -126,9 +127,24 @@ class BookBrowser(QWidget):
             self.reload_ui()
 
 
+def resource_path(relative_path):
+    if getattr(sys, "frozen", False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(base_path, relative_path)
+
+
 def main():
     app = QApplication([])
+    icon_path = resource_path(os.path.join("assets", "img", "favicon.ico"))
+    if os.path.exists(icon_path):
+        icon = QIcon(icon_path)
+        app.setWindowIcon(icon)
+
     browser = BookBrowser()
+    if os.path.exists(icon_path):
+        browser.setWindowIcon(QIcon(icon_path))
     browser.resize(800, 600)
     browser.show()
     app.exec()

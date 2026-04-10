@@ -5,3 +5,6 @@ __pycache__/
 *.jpg
 *.db
 *.db-journal
+dist/
+build/
+*.spec
