@@ -100,12 +100,12 @@ python -m src.main
 
 ### 保存先
 ```
-cache/img/{isbn}.jpg
+assets/img/{isbn}.jpg
 ```
 
 ### 書影がない場合
 ```
-cache/img/no-image.png
+assets/img/no-image.png
 ```
 
 ## 注意

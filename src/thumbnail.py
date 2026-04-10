@@ -7,7 +7,7 @@ from requests import get
 from src.isbn import get_isbn
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-IMG_DIR = os.path.join(ROOT_DIR, "cache", "img")
+IMG_DIR = os.path.join(ROOT_DIR, "assets", "img")
 
 
 def build_thumbnail_url(isbn):
