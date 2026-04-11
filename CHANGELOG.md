@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.4.1 (2026-04-11)
+### 変更
+- Windows 向け開発に専念し、`src/utils.py` の `resource_path` 関数で macOS 固有の条件を削除
+- `README.md` を Windows 向けの説明に統一（コマンド例を `zsh` から `shell` に変更、macOS のビルド例を削除）
+
 ## v0.4.0 (2026-04-10)
 ### 追加
 - `src/utils.py` を追加し、frozen 実行時のリソース / データパス解決を共通化

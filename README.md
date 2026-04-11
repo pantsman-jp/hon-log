@@ -41,17 +41,11 @@
 `Python 3.12`
 
 ### 必要パッケージ
-```zsh
+```shell
 pip install -r requirements.txt
 ```
 
 ### 実行ファイル化
-- macOS
-```zsh
-pyinstaller src/main.py --windowed --noconfirm --icon=assets/img/icon.icns --add-data "assets/img/no-image.png:assets/img"
-```
-
-- Windows
 ```shell
 pyinstaller src/main.py --onefile --noconfirm --icon=assets/img/favicon.ico --add-data "assets/img/no-image.png;assets/img"
 ```
@@ -59,7 +53,7 @@ pyinstaller src/main.py --onefile --noconfirm --icon=assets/img/favicon.ico --ad
 ## 使用方法
 
 ### 1. 初回起動
-```zsh
+```shell
 python -m src.main
 ```
 
@@ -70,7 +64,7 @@ python -m src.main
 初回起動時は書影取得のため、大変時間がかかります。
 
 ### 2. 通常起動（2回目以降）
-```zsh
+```shell
 python -m src.main
 ```
 
