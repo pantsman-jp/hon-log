@@ -18,6 +18,8 @@ from PySide6.QtGui import QPixmap
 from src.db import connect_db, create_table, fetch_all_loans, get_db_path
 import csv
 
+VERSION = "v1.2.0"
+
 
 def resource_path(relative_path):
     base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
@@ -51,7 +53,6 @@ class BookWidget(QWidget):
         img_label = QLabel()
         no_image = resource_path(os.path.join("assets", "img", "no-image.png"))
         raw_path = self.row[5]
-        # DBに保存されたパス、または同梱されたデフォルト画像の順で確認
         img_path = (
             raw_path
             if isinstance(raw_path, str) and os.path.exists(raw_path)
@@ -78,7 +79,7 @@ class BookWidget(QWidget):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("ほんろぐ")
+        self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1000, 700)
         self.main_layout = QVBoxLayout(self)
         self.btn_update = QPushButton("新規追加 / 更新")

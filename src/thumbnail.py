@@ -5,15 +5,15 @@ from PIL import Image
 
 
 def get_app_dir():
-    d = os.path.join(os.path.expanduser("~"), ".hon-log")
-    os.makedirs(d, exist_ok=True)
-    return d
+    dir = os.path.join(os.path.expanduser("~"), ".hon-log")
+    os.makedirs(dir, exist_ok=True)
+    return dir
 
 
 def get_image_dir():
-    d = os.path.join(get_app_dir(), "img")
-    os.makedirs(d, exist_ok=True)
-    return d
+    dir = os.path.join(get_app_dir(), "img")
+    os.makedirs(dir, exist_ok=True)
+    return dir
 
 
 def download_image(isbn):

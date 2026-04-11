@@ -20,7 +20,7 @@ def create_table(conn):
 
 
 def normalize_row(row):
-    return {k.replace("\ufeff", "").strip(): v.strip() for k, v in row.items()}
+    return {k.replace("\ufeff", "").strip(): v.strip() for [k, v] in row.items()}
 
 
 def record_exists(conn, mid, date):
@@ -70,7 +70,7 @@ def insert_loans_parallel(rows, callback):
         conn.close()
         return
     with ThreadPoolExecutor(max_workers=10) as executor:
-        for i, result in enumerate(executor.map(process_single_loan, to_process)):
+        for [i, result] in enumerate(executor.map(process_single_loan, to_process)):
             if result:
                 conn.execute(
                     "INSERT INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
