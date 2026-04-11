@@ -19,106 +19,63 @@
 
 ### 1. CSV -> DB変換
 - CSV を読み込み、SQLite データベースへ登録
-- 重複データは登録されない（material_id + loan_date で判定）
+- 重複データは登録されない（`material_id` + `loan_date` で判定）
 
 ### 2. ISBN 取得
-- OPAC のURL から HTML を取得
-- ISBN を自動抽出
+- OPAC の URL から ISBN を自動抽出
 
 ### 3. 書影取得
-- ISBN から書影 URL を生成
-- 画像をダウンロードして保存
+- 国立国会図書館（NDL）の書影 API を利用
+- 取得した画像はローカルにキャッシュし、オフライン時でも表示可能
 
-### 4. GUI表示
-- 書影をグリッド表示（5列）
-- 下に書名を表示
-
-### 5. インタラクション
-- ホバー -> 詳細情報表示
-- クリック -> 感想入力・保存
+### 4. クリーンなデータ管理
+- **ホームディレクトリ（`~/.hon-log/`）** にデータベースと書影を保存
+- アプリ実行ファイルのあるディレクトリを汚しません
 
 ## 動作環境
-`Python 3.12`
+`Python 3.12` 以上
 
 ### 必要パッケージ
 ```shell
 pip install -r requirements.txt
 ```
 
-### 実行ファイル化
+### 実行ファイル化 (Windows)
 ```shell
-pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=assets/img/favicon.ico --add-data "assets;assets"
+pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets/img;assets/img" --noconsole
 ```
 
 ## 使用方法
 
-### 1. 初回起動
+### 1. 起動
 ```shell
 python -m src.main
 ```
+またはビルドした `hon-log.exe` を実行します。
 
-- CSV 選択ダイアログが表示される
-- CSV を選択すると DB が作成される
+- 初回起動時: UIが表示されます。「新規追加・更新」ボタンからCSVを選択してください。
+- 2回目以降: 以前取り込んだデータが自動的に表示されます。
 
-#### 注意
-初回起動時は書影取得のため、大変時間がかかります。
+### 2. 更新
+- 「新規追加・更新」ボタンをクリックし、新しい CSV を選択します。
+- 新規データのみが追加され、既存のデータや感想（レビュー）は保持されます。
 
-### 2. 通常起動（2回目以降）
-```shell
-python -m src.main
-```
+## データの保存場所
+アプリの設定やデータは以下の場所に保存されます。バックアップを取る際はこのフォルダをコピーしてください。
 
-- DB からデータを読み込み表示
+- Windows: `C:\Users\Username\.hon-log\`
 
-### 3. 更新
-- 「更新」ボタンをクリック
-- 新しい CSV を選択
-- 新規データのみ追加される（既存データ保持）
+| ファイル/フォルダ | 内容 |
+| ---: | :--- |
+| `loans.db` | 貸出履歴データおよび感想 |
+| `img/` | ダウンロードされた書影画像（`{isbn}.jpeg`） |
 
 ## CSV仕様
-以下の列を含む必要があります：  
-- タイトル
-- 貸出日
-- 巻情報
-- 著者
-- 出版社
-- 年月情報
-- 資料ID
-- URL
+以下の列を含む必要があります（九工大図書館の標準エクスポート形式に対応）：
+- タイトル、貸出日、巻情報、著者、出版社、年月情報、資料ID、URL
 
-### 注意
-- ヘッダの空白や BOM は内部で正規化される
-
-## DB仕様
-| カラム名 | 説明 |
-| ---: | :--- |
-| id | 主キー |
-| title | タイトル |
-| loan_date | 貸出日 |
-| volume | 巻情報 |
-| author | 著者 |
-| publisher | 出版社 |
-| published_at | 出版年月 |
-| material_id | 資料ID |
-| url | URL |
-| isbn | ISBN |
-| image_path | 書影パス |
-| review | 感想 |
-
-## 書影仕様
-
-### 保存先
-```
-assets/img/{isbn}.jpg
-```
-
-### 書影がない場合
-```
-assets/img/no-image.png
-```
-
-## 関連
-アプリのアイコンは <https://favicon.io/favicon-generator/> で作成しました。
+## ライセンス・関連
+- アプリのアイコンは [favicon.io](https://favicon.io/favicon-generator/) で作成しました。
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)

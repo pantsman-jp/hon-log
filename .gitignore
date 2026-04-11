@@ -3,6 +3,7 @@
 __pycache__/
 *.csv
 *.jpg
+*.jpeg
 *.db
 *.db-journal
 dist/

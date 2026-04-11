@@ -1,63 +1,37 @@
 import threading
-import re
 import requests
+import re
 from bs4 import BeautifulSoup
 
 _thread_local = threading.local()
-REQUEST_TIMEOUT = 10
 
 
-def get_session():
-    session = getattr(_thread_local, "session", None)
-    if session is None:
-        session = requests.Session()
-        session.headers.update(
-            {"User-Agent": "Mozilla/5.0", "Accept-Language": "ja-JP,ja;q=0.9"}
+def session():
+    if getattr(_thread_local, "session", None) is None:
+        _thread_local.session = requests.Session()
+        _thread_local.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
         )
-        _thread_local.session = session
-    return session
+    return getattr(_thread_local, "session")
 
 
 def get_html(url):
-    if not url:
-        return ""
     try:
-        r = get_session().get(url, timeout=REQUEST_TIMEOUT)
-        r.raise_for_status()
-        return r.text
-    except requests.RequestException:
+        return session().get(url, timeout=10).text
+    except Exception:
         return ""
 
 
-def parse(html):
-    return BeautifulSoup(html, "html.parser")
-
-
-def extract_from_input(soup):
-    tag = soup.find("input", {"id": "lid_isbn"})
-    if tag and tag.get("value"):
-        return tag["value"]
-    return ""
-
-
-def extract_from_text(text):
-    patterns = [
-        r"97[89][\-\s]?\d[\d\-\s]{10,17}\d",
-        r"ISBN[\s]*[:：]?\s*(97[89][\d\-\s]+)",
-    ]
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            return m.group(1 if "ISBN" in p else 0).replace("-", "").replace(" ", "")
-    return ""
+def parse_isbn(html):
+    soup = BeautifulSoup(html, "html.parser")
+    input_tag = soup.find("input", {"id": "lid_isbn"})
+    if input_tag and input_tag.get("value"):
+        return input_tag["value"]
+    m = re.search(r"97[89]\d{10,13}", soup.get_text())
+    return m.group(0) if m else ""
 
 
 def get_isbn(url):
-    html = get_html(url)
-    if not html:
-        return ""
-    soup = parse(html)
-    isbn = extract_from_input(soup)
-    if isbn:
-        return isbn
-    return extract_from_text(soup.get_text())
+    return parse_isbn(get_html(url)) if url else ""

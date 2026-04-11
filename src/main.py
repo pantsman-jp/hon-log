@@ -1,157 +1,158 @@
+import sys
 import os
-
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QDialog,
-    QFileDialog,
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
     QGridLayout,
     QLabel,
-    QPushButton,
-    QScrollArea,
+    QFileDialog,
+    QDialog,
     QTextEdit,
-    QVBoxLayout,
-    QWidget,
+    QProgressBar,
+    QScrollArea,
 )
-
-from src.db import connect, fetch_rows, initialize_db, update_review
-from src.utils import resource_path
-
-DB_PATH = resource_path("loans.db")
-
-
-def resolve_image(isbn):
-    if not isbn:
-        return resource_path("assets", "img", "no-image.png")
-    path = resource_path("assets", "img", f"{isbn}.jpg")
-    if os.path.exists(path):
-        return path
-    return resource_path("assets", "img", "no-image.png")
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QPixmap
+from src.db import connect_db, create_table, insert_loan, fetch_all_loans, get_db_path
+import csv
 
 
-class BookBrowser(QWidget):
+def resource_path(relative_path):
+    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
+
+class ImportWorker(QThread):
+    progress = Signal(int, int)
+    finished = Signal()
+
+    def __init__(self, csv_path):
+        super().__init__()
+        self.csv_path = csv_path
+
+    def run(self):
+        conn = connect_db()
+        create_table(conn)
+        rows = list(csv.DictReader(open(self.csv_path, encoding="utf-8-sig")))
+        for i, row in enumerate(rows):
+            insert_loan(conn, row)
+            self.progress.emit(i + 1, len(rows))
+        conn.commit()
+        conn.close()
+        self.finished.emit()
+
+
+class BookWidget(QWidget):
+    def __init__(self, row, on_click):
+        super().__init__()
+        self.row = row
+        self.init_ui(on_click)
+
+    def init_ui(self, on_click):
+        layout = QVBoxLayout(self)
+        img_label = QLabel()
+        no_image = resource_path(os.path.join("assets", "img", "no-image.png"))
+        raw_path = self.row[5]
+        # DBに保存されたパス、または同梱されたデフォルト画像の順で確認
+        img_path = (
+            raw_path
+            if isinstance(raw_path, str) and os.path.exists(raw_path)
+            else no_image
+        )
+        pix = QPixmap(img_path)
+        if pix.isNull():
+            pix = QPixmap(no_image) if os.path.exists(no_image) else QPixmap(120, 160)
+        img_label.setPixmap(
+            pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+        img_label.mousePressEvent = lambda e: on_click(self.row[0], self.row[6])
+        layout.addWidget(img_label, alignment=Qt.AlignCenter)
+        title = QLabel(self.row[1])
+        title.setFixedWidth(120)
+        title.setWordWrap(True)
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        self.setToolTip(
+            f"タイトル: {self.row[1]}\n著者: {self.row[2]}\n出版社: {self.row[3]}\n貸出日: {self.row[4]}"
+        )
+
+
+class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.conn = None
-        self.main_layout = QVBoxLayout()
-        self.setLayout(self.main_layout)
-        self.scroll_area = QScrollArea()
+        self.setWindowTitle("ほんろぐ")
+        self.resize(1000, 700)
+        self.main_layout = QVBoxLayout(self)
+        self.btn_update = QPushButton("新規追加・更新")
+        self.btn_update.clicked.connect(self.select_csv)
+        self.main_layout.addWidget(self.btn_update)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.main_layout.addWidget(self.progress_bar)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
         self.grid_container = QWidget()
-        self.grid_layout = QGridLayout()
-        self.grid_container.setLayout(self.grid_layout)
-        self.scroll_area.setWidget(self.grid_container)
-        self.scroll_area.setWidgetResizable(True)
-        self.update_button = QPushButton("更新")
-        self.update_button.clicked.connect(self.on_update)
-        self.main_layout.addWidget(self.update_button)
-        self.main_layout.addWidget(self.scroll_area)
-        self.initialize_db_if_needed()
-        self.load_db()
-        self.reload_ui()
-
-    def initialize_db_if_needed(self):
-        if not os.path.exists(DB_PATH):
-            csv_path = self.select_csv()
-            if csv_path:
-                initialize_db(DB_PATH, csv_path)
-        else:
-            conn = connect(DB_PATH)
-            rows = fetch_rows(conn)
-            if not rows:
-                csv_path = self.select_csv()
-                if csv_path:
-                    initialize_db(DB_PATH, csv_path)
-            conn.close()
+        self.grid_layout = QGridLayout(self.grid_container)
+        self.scroll.setWidget(self.grid_container)
+        self.main_layout.addWidget(self.scroll)
+        if os.path.exists(get_db_path()):
+            self.refresh_grid()
 
     def select_csv(self):
-        dialog = QFileDialog()
-        path, _ = dialog.getOpenFileName(filter="CSV Files (*.csv)")
-        return path
+        path, _ = QFileDialog.getOpenFileName(self, "CSV選択", "", "CSV (*.csv)")
+        if path:
+            self.start_import(path)
 
-    def load_db(self):
-        self.conn = connect(DB_PATH)
-
-    def reload_ui(self):
-        for i in reversed(range(self.grid_layout.count())):
-            widget = self.grid_layout.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
-        rows = fetch_rows(self.conn)
-        self.populate_grid(rows)
-
-    def populate_grid(self, rows):
-        for [i, row] in enumerate(rows):
-            widget = self.create_book_widget(row)
-            self.grid_layout.addWidget(widget, i // 5, i % 5)
-
-    def create_book_widget(self, row):
-        widget = QWidget()
-        layout = QVBoxLayout()
-        isbn = row[5]
-        img_label = self.create_image_label(resolve_image(isbn))
-        img_label.setToolTip(self.build_tooltip(row))
-        img_label.mousePressEvent = lambda event, r=row: self.open_review_dialog(
-            r[0], r[6]
+    def start_import(self, path):
+        self.progress_bar.setVisible(True)
+        self.worker = ImportWorker(path)
+        self.worker.progress.connect(
+            lambda c, t: self.progress_bar.setValue(int(c / t * 100))
         )
-        title_label = QLabel(row[1])
-        title_label.setWordWrap(True)
-        title_label.setFixedWidth(120)
-        layout.addWidget(img_label)
-        layout.addWidget(title_label)
-        widget.setLayout(layout)
-        return widget
+        self.worker.finished.connect(self.on_import_finished)
+        self.worker.start()
 
-    def create_image_label(self, path):
-        label = QLabel()
-        pixmap = QPixmap(path)
-        if pixmap.isNull():
-            pixmap = QPixmap(resource_path("assets", "img", "no-image.png"))
-        label.setPixmap(pixmap.scaled(120, 160, Qt.KeepAspectRatio))
-        return label
+    def on_import_finished(self):
+        self.progress_bar.setVisible(False)
+        self.refresh_grid()
 
-    def build_tooltip(self, row):
-        return f"{row[1]}\n{row[2]}\n{row[3]}\n{row[4]}"
+    def refresh_grid(self):
+        while self.grid_layout.count():
+            item = self.grid_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        conn = connect_db()
+        create_table(conn)
+        for i, row in enumerate(fetch_all_loans(conn)):
+            self.grid_layout.addWidget(BookWidget(row, self.edit_review), i // 5, i % 5)
+        conn.close()
 
-    def open_review_dialog(self, row_id, current_review):
+    def edit_review(self, db_id, current_review):
         dialog = QDialog(self)
         layout = QVBoxLayout(dialog)
-        text = QTextEdit()
-        text.setText(current_review)
+        text_edit = QTextEdit()
+        text_edit.setText(current_review if current_review else "")
         save_btn = QPushButton("保存")
-
-        def save():
-            update_review(self.conn, row_id, text.toPlainText())
-            self.conn.commit()
-            dialog.accept()
-            self.reload_ui()
-
-        save_btn.clicked.connect(save)
-        layout.addWidget(text)
+        save_btn.clicked.connect(
+            lambda: self.save_review(dialog, db_id, text_edit.toPlainText())
+        )
+        layout.addWidget(text_edit)
         layout.addWidget(save_btn)
-        dialog.setLayout(layout)
         dialog.exec()
 
-    def on_update(self):
-        csv_path = self.select_csv()
-        if csv_path:
-            initialize_db(DB_PATH, csv_path)
-            self.load_db()
-            self.reload_ui()
-
-
-def main():
-    app = QApplication([])
-    icon_path = resource_path("assets", "img", "favicon.ico")
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-    browser = BookBrowser()
-    if os.path.exists(icon_path):
-        browser.setWindowIcon(QIcon(icon_path))
-    browser.resize(800, 600)
-    browser.show()
-    app.exec()
+    def save_review(self, dialog, db_id, text):
+        conn = connect_db()
+        conn.execute("UPDATE loans SET review=? WHERE id=?", (text, db_id))
+        conn.commit()
+        conn.close()
+        dialog.accept()
+        self.refresh_grid()
 
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    window = App()
+    window.show()
+    sys.exit(app.exec())

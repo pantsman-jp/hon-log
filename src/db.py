@@ -1,84 +1,63 @@
-import os
 import sqlite3
-from csv import DictReader
+import os
 from src.isbn import get_isbn
-from src.thumbnail import process_url
+from src.thumbnail import process_thumbnail, get_app_dir
 
 
-def connect(db_path):
-    db_dir = os.path.dirname(db_path)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-    return sqlite3.connect(db_path)
+def get_db_path():
+    return os.path.join(get_app_dir(), "loans.db")
+
+
+def connect_db():
+    return sqlite3.connect(get_db_path())
 
 
 def create_table(conn):
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, loan_date TEXT, volume TEXT, author TEXT, publisher TEXT, published_at TEXT, material_id TEXT, url TEXT, isbn TEXT, review TEXT, UNIQUE(material_id, loan_date))"
+        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,loan_date TEXT,volume TEXT,author TEXT,publisher TEXT,published_at TEXT,material_id TEXT,url TEXT,isbn TEXT,image_path TEXT,review TEXT,UNIQUE(material_id,loan_date))"
     )
 
 
 def normalize_row(row):
-    normalized = {}
-    for k, v in row.items():
-        key = k.replace("\ufeff", "").strip()
-        normalized[key] = v
-    return normalized
+    return {k.replace("\ufeff", "").strip(): v.strip() for k, v in row.items()}
 
 
-def record_exists(conn, material_id, loan_date):
-    cursor = conn.execute(
-        "SELECT 1 FROM loans WHERE material_id = ? AND loan_date = ?",
-        (material_id, loan_date),
+def record_exists(conn, mid, date):
+    return (
+        conn.execute(
+            "SELECT 1 FROM loans WHERE material_id=? AND loan_date=?", (mid, date)
+        ).fetchone()
+        is not None
     )
-    return cursor.fetchone() is not None
 
 
-def insert_row(conn, row):
-    row = normalize_row(row)
-    material_id = row.get("資料ID", "")
-    loan_date = row.get("貸出日", "")
-    if record_exists(conn, material_id, loan_date):
-        return
-    url = row.get("URL", "")
-    isbn = get_isbn(url)
-    process_url(url, isbn)
+def insert_loan(conn, row):
+    data = normalize_row(row)
+    if not data.get("資料ID", "") or record_exists(
+        conn, data.get("資料ID", ""), data.get("貸出日", "")
+    ):
+        return False
+    isbn = get_isbn(data.get("URL", ""))
     conn.execute(
-        "INSERT INTO loans (title, loan_date, volume, author, publisher, published_at, material_id, url, isbn, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
         (
-            row.get("タイトル", ""),
-            loan_date,
-            row.get("巻情報", ""),
-            row.get("著者", ""),
-            row.get("出版社", ""),
-            row.get("年月情報", ""),
-            material_id,
-            url,
+            data.get("タイトル", ""),
+            data.get("貸出日", ""),
+            data.get("巻情報", ""),
+            data.get("著者", ""),
+            data.get("出版社", ""),
+            data.get("年月情報", ""),
+            data.get("資料ID", ""),
+            data.get("URL", ""),
             isbn,
+            process_thumbnail(isbn),
             "",
         ),
     )
+    return True
 
 
-def import_csv(conn, csv_path):
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
-        for row in DictReader(f):
-            insert_row(conn, row)
-
-
-def update_review(conn, row_id, review):
-    conn.execute("UPDATE loans SET review = ? WHERE id = ?", (review, row_id))
-
-
-def fetch_rows(conn):
-    cursor = conn.execute(
-        "SELECT id, title, author, publisher, loan_date, isbn, review FROM loans ORDER BY loan_date DESC"
-    )
-    return list(cursor)
-
-
-def initialize_db(db_path, csv_path):
-    with connect(db_path) as conn:
-        create_table(conn)
-        import_csv(conn, csv_path)
-        conn.commit()
+def fetch_all_loans(conn):
+    return conn.execute(
+        "SELECT id,title,author,publisher,loan_date,image_path,review FROM loans ORDER BY loan_date DESC"
+    ).fetchall()
