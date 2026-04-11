@@ -27,11 +27,24 @@ jobs:
         pip install -r requirements.txt
 
     - name: Build executable
-      run: pyinstaller src/main.py --onefile --noconfirm --icon=assets/img/favicon.ico --add-data "assets/img/no-image.png;assets/img"
+      run: pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=assets/img/favicon.ico --add-data "assets/img/no-image.png;assets/img"
+
+    - name: Get version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      shell: bash
 
     - name: Create release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/main.exe
-        generate_release_notes: true
+        files: dist/hon-log.exe
+        body: |
+          貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/top) からダウンロードできます。
+          九工大IDでのログインが必要です。
+
+          ## ダウンロード
+          - ### [Windows](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log.exe)
+
+          ---
+          Copyright (c) 2026 @pantsman-jp
         token: ${{ secrets.GITHUB_TOKEN }}
