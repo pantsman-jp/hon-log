@@ -34,3 +34,4 @@ jobs:
       with:
         files: dist/main.exe
         generate_release_notes: true
+        token: ${{ secrets.GITHUB_TOKEN }}
