@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## v0.4.2 (2026-04-11)
+### 変更
+- PyInstaller環境で書影が表示されずno-imageになる不具合を修正
+- 画像リソースの解決方式を `image_path依存` から `ISBNベースの実ファイル解決方式` に変更
+- `resource_path()` を基準とした実行環境（通常実行 / frozen実行）統一パス解決を導入
+- `assets/img/{isbn}.jpg` の存在チェックをUI側で行う設計に変更し、DBのパス依存を廃止
+- `QPixmap.isNull()` 発生時のフォールバック処理を強化
+- `db.py` から `image_path` カラム依存を削除し、スキーマを簡素化
+- `thumbnail.py` の画像保存処理を `resource_path` 基準に統一
+- PyInstallerビルド時の `--add-data "assets;assets"` によるリソース展開構成へ統一
+
+### 修正
+- `QPixmap::scaled: Pixmap is a null pixmap` が大量発生する問題を解消（画像パス不整合による読み込み失敗が原因）
+- 実行ファイルで書影が表示されず常にno-imageになる問題を修正
+
 ## v0.4.1 (2026-04-11)
 ### 変更
 - Windows 向け開発に専念し、`src/utils.py` の `resource_path` 関数で macOS 固有の条件を削除
