@@ -1,6 +1,4 @@
-import sys
 import os
-from functools import partial
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QIcon
@@ -44,19 +42,16 @@ class BookBrowser(QWidget):
         self.update_button.clicked.connect(self.on_update)
         self.main_layout.addWidget(self.update_button)
         self.main_layout.addWidget(self.scroll_area)
-        self.initialize_db_if_needed()
+        csv_path = self.select_csv()
+        if csv_path:
+            initialize_db(DB_PATH, csv_path)
         self.load_db()
         self.reload_ui()
 
-    def initialize_db_if_needed(self):
-        if not os.path.exists(DB_PATH):
-            csv_path = self.select_csv()
-            if csv_path:
-                initialize_db(DB_PATH, csv_path)
-
     def select_csv(self):
-        dialog = QFileDialog()
-        path, _ = dialog.getOpenFileName(filter="CSV Files (*.csv)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "CSVを選択", "", "CSV Files (*.csv)"
+        )
         return path
 
     def load_db(self):
@@ -93,7 +88,10 @@ class BookBrowser(QWidget):
 
     def create_image_label(self, path):
         label = QLabel()
-        full_path = resource_path(path)
+        if os.path.isabs(path):
+            full_path = path
+        else:
+            full_path = resource_path(path)
         pixmap = QPixmap(full_path)
         if pixmap.isNull():
             fallback_path = resource_path("assets/img/no-image.png")

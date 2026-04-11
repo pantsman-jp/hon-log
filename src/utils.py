@@ -7,7 +7,8 @@ def get_data_path(*path_segments):
         base_dir = os.path.join(os.path.expanduser("~"), "hon-log")
     else:
         base_dir = os.path.dirname(os.path.dirname(__file__))
-    return os.path.normpath(os.path.join(base_dir, *path_segments))
+    result = os.path.normpath(os.path.join(base_dir, *path_segments))
+    return result
 
 
 def resource_path(relative_path):
@@ -17,4 +18,5 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     else:
         base_path = os.path.dirname(os.path.dirname(__file__))
-    return os.path.normpath(os.path.join(base_path, relative_path))
+    result = os.path.normpath(os.path.join(base_path, relative_path))
+    return result

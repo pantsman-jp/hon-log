@@ -4,8 +4,15 @@ from csv import DictReader
 from concurrent.futures import ThreadPoolExecutor
 
 from src.isbn import get_isbn
-from src.thumbnail import process_url
-from src.utils import get_data_path, resource_path
+from src.thumbnail import (
+    process_url,
+    build_thumbnail_url,
+    get_image,
+    open_image,
+    save_image,
+)
+from src.utils import get_data_path
+import sys
 
 
 IMG_DIR = get_data_path("assets", "img")
@@ -34,17 +41,27 @@ def normalize_row(row):
 
 def build_image_path(isbn):
     if isbn == "":
-        return resource_path("assets/img/no-image.png")
+        return "assets/img/no-image.png"
+    expected = build_expected_image_path(isbn)
+    if getattr(sys, "frozen", False):
+        return expected
     path = os.path.join(IMG_DIR, f"{isbn}.jpg")
     if os.path.exists(path):
         return path
-    return resource_path("assets/img/no-image.png")
+    try:
+        url = build_thumbnail_url(isbn)
+        image_bytes = get_image(url)
+        img = open_image(image_bytes)
+        save_image(img, isbn)
+        return path
+    except Exception:
+        return "assets/img/no-image.png"
 
 
 def build_expected_image_path(isbn):
     if isbn == "":
-        return resource_path("assets/img/no-image.png")
-    return os.path.join(IMG_DIR, f"{isbn}.jpg")
+        return "assets/img/no-image.png"
+    return f"assets/img/{isbn}.jpg"
 
 
 def fetch_and_store_image(url, isbn=None):
