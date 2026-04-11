@@ -15,15 +15,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.db import (
-    connect,
-    fetch_rows,
-    initialize_db,
-    update_review,
-)
-from src.utils import get_data_path, resource_path
+from src.db import connect, fetch_rows, initialize_db, update_review
+from src.utils import resource_path
 
-DB_PATH = get_data_path("loans.db")
+DB_PATH = resource_path("loans.db")
+
+
+def resolve_image(isbn):
+    if not isbn:
+        return resource_path("assets", "img", "no-image.png")
+    path = resource_path("assets", "img", f"{isbn}.jpg")
+    if os.path.exists(path):
+        return path
+    return resource_path("assets", "img", "no-image.png")
 
 
 class BookBrowser(QWidget):
@@ -42,16 +46,27 @@ class BookBrowser(QWidget):
         self.update_button.clicked.connect(self.on_update)
         self.main_layout.addWidget(self.update_button)
         self.main_layout.addWidget(self.scroll_area)
-        csv_path = self.select_csv()
-        if csv_path:
-            initialize_db(DB_PATH, csv_path)
+        self.initialize_db_if_needed()
         self.load_db()
         self.reload_ui()
 
+    def initialize_db_if_needed(self):
+        if not os.path.exists(DB_PATH):
+            csv_path = self.select_csv()
+            if csv_path:
+                initialize_db(DB_PATH, csv_path)
+        else:
+            conn = connect(DB_PATH)
+            rows = fetch_rows(conn)
+            if not rows:
+                csv_path = self.select_csv()
+                if csv_path:
+                    initialize_db(DB_PATH, csv_path)
+            conn.close()
+
     def select_csv(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "CSVを選択", "", "CSV Files (*.csv)"
-        )
+        dialog = QFileDialog()
+        path, _ = dialog.getOpenFileName(filter="CSV Files (*.csv)")
         return path
 
     def load_db(self):
@@ -73,7 +88,8 @@ class BookBrowser(QWidget):
     def create_book_widget(self, row):
         widget = QWidget()
         layout = QVBoxLayout()
-        img_label = self.create_image_label(row[5])
+        isbn = row[5]
+        img_label = self.create_image_label(resolve_image(isbn))
         img_label.setToolTip(self.build_tooltip(row))
         img_label.mousePressEvent = lambda event, r=row: self.open_review_dialog(
             r[0], r[6]
@@ -88,14 +104,9 @@ class BookBrowser(QWidget):
 
     def create_image_label(self, path):
         label = QLabel()
-        if os.path.isabs(path):
-            full_path = path
-        else:
-            full_path = resource_path(path)
-        pixmap = QPixmap(full_path)
+        pixmap = QPixmap(path)
         if pixmap.isNull():
-            fallback_path = resource_path("assets/img/no-image.png")
-            pixmap = QPixmap(fallback_path)
+            pixmap = QPixmap(resource_path("assets", "img", "no-image.png"))
         label.setPixmap(pixmap.scaled(120, 160, Qt.KeepAspectRatio))
         return label
 
@@ -131,10 +142,9 @@ class BookBrowser(QWidget):
 
 def main():
     app = QApplication([])
-    icon_path = resource_path(os.path.join("assets", "img", "favicon.ico"))
+    icon_path = resource_path("assets", "img", "favicon.ico")
     if os.path.exists(icon_path):
-        icon = QIcon(icon_path)
-        app.setWindowIcon(icon)
+        app.setWindowIcon(QIcon(icon_path))
     browser = BookBrowser()
     if os.path.exists(icon_path):
         browser.setWindowIcon(QIcon(icon_path))

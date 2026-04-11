@@ -47,7 +47,7 @@ pip install -r requirements.txt
 
 ### 実行ファイル化
 ```shell
-pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=assets/img/favicon.ico --add-data "assets/img/no-image.png;assets/img"
+pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=assets/img/favicon.ico --add-data "assets;assets"
 ```
 
 ## 使用方法

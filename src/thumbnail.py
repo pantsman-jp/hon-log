@@ -1,14 +1,10 @@
 from io import BytesIO
 import os
 import threading
-
 from PIL import Image
 import requests
-
 from src.isbn import get_isbn
-from src.utils import get_data_path
-
-IMG_DIR = get_data_path("assets", "img")
+from src.utils import resource_path
 
 _thread_local = threading.local()
 
@@ -39,8 +35,9 @@ def open_image(image_bytes):
 
 
 def save_image(img, isbn):
-    os.makedirs(IMG_DIR, exist_ok=True)
-    path = os.path.join(IMG_DIR, f"{isbn}.jpg")
+    base_dir = resource_path("assets", "img")
+    os.makedirs(base_dir, exist_ok=True)
+    path = os.path.join(base_dir, f"{isbn}.jpg")
     img.save(path)
     return path
 
@@ -49,5 +46,10 @@ def process_url(url, isbn=None):
     if isbn is None:
         isbn = get_isbn(url)
     if isbn == "":
-        return
-    return save_image(open_image(get_image(build_thumbnail_url(isbn))), isbn)
+        return None
+    try:
+        image_bytes = get_image(build_thumbnail_url(isbn))
+        img = open_image(image_bytes)
+        return save_image(img, isbn)
+    except Exception:
+        return None
