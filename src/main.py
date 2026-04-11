@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
-from src.db import connect_db, create_table, insert_loan, fetch_all_loans, get_db_path
+from src.db import connect_db, create_table, fetch_all_loans, get_db_path
 import csv
 
 
@@ -33,14 +33,10 @@ class ImportWorker(QThread):
         self.csv_path = csv_path
 
     def run(self):
-        conn = connect_db()
-        create_table(conn)
+        from src.db import insert_loans_parallel
+
         rows = list(csv.DictReader(open(self.csv_path, encoding="utf-8-sig")))
-        for i, row in enumerate(rows):
-            insert_loan(conn, row)
-            self.progress.emit(i + 1, len(rows))
-        conn.commit()
-        conn.close()
+        insert_loans_parallel(rows, self.progress.emit)
         self.finished.emit()
 
 
@@ -85,7 +81,7 @@ class App(QWidget):
         self.setWindowTitle("ほんろぐ")
         self.resize(1000, 700)
         self.main_layout = QVBoxLayout(self)
-        self.btn_update = QPushButton("新規追加・更新")
+        self.btn_update = QPushButton("新規追加 / 更新")
         self.btn_update.clicked.connect(self.select_csv)
         self.main_layout.addWidget(self.btn_update)
         self.progress_bar = QProgressBar()

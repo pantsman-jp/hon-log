@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from concurrent.futures import ThreadPoolExecutor
 from src.isbn import get_isbn
 from src.thumbnail import process_thumbnail, get_app_dir
 
@@ -31,30 +32,53 @@ def record_exists(conn, mid, date):
     )
 
 
-def insert_loan(conn, row):
+def process_single_loan(row):
     data = normalize_row(row)
-    if not data.get("資料ID", "") or record_exists(
-        conn, data.get("資料ID", ""), data.get("貸出日", "")
-    ):
-        return False
+    mid = data.get("資料ID", "")
+    date = data.get("貸出日", "")
+    if not mid:
+        return None
     isbn = get_isbn(data.get("URL", ""))
-    conn.execute(
-        "INSERT INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-        (
-            data.get("タイトル", ""),
-            data.get("貸出日", ""),
-            data.get("巻情報", ""),
-            data.get("著者", ""),
-            data.get("出版社", ""),
-            data.get("年月情報", ""),
-            data.get("資料ID", ""),
-            data.get("URL", ""),
-            isbn,
-            process_thumbnail(isbn),
-            "",
-        ),
+    img_path = process_thumbnail(isbn)
+    return (
+        data.get("タイトル", ""),
+        date,
+        data.get("巻情報", ""),
+        data.get("著者", ""),
+        data.get("出版社", ""),
+        data.get("年月情報", ""),
+        mid,
+        data.get("URL", ""),
+        isbn,
+        img_path,
+        "",
     )
-    return True
+
+
+def insert_loans_parallel(rows, callback):
+    conn = connect_db()
+    create_table(conn)
+    to_process = [
+        r
+        for r in rows
+        if not record_exists(
+            conn, normalize_row(r).get("資料ID", ""), normalize_row(r).get("貸出日", "")
+        )
+    ]
+    total = len(to_process)
+    if total == 0:
+        conn.close()
+        return
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for i, result in enumerate(executor.map(process_single_loan, to_process)):
+            if result:
+                conn.execute(
+                    "INSERT INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    result,
+                )
+            callback(i + 1, total)
+    conn.commit()
+    conn.close()
 
 
 def fetch_all_loans(conn):
