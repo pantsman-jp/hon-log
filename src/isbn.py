@@ -25,13 +25,17 @@ def get_html(url):
 
 
 def parse_isbn(html):
+    if not html:
+        return ""
     soup = BeautifulSoup(html, "html.parser")
     input_tag = soup.find("input", {"id": "lid_isbn"})
     if input_tag and input_tag.get("value"):
-        return input_tag["value"]
+        return re.sub(r"\D", "", input_tag["value"])
     m = re.search(r"97[89]\d{10,13}", soup.get_text())
     return m.group(0) if m else ""
 
 
 def get_isbn(url):
-    return parse_isbn(get_html(url)) if url else ""
+    if url == "":
+        return ""
+    return parse_isbn(get_html(url))

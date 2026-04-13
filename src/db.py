@@ -23,22 +23,14 @@ def normalize_row(row):
     return {k.replace("\ufeff", "").strip(): v.strip() for [k, v] in row.items()}
 
 
-def record_exists(conn, mid, date):
-    return (
-        conn.execute(
-            "SELECT 1 FROM loans WHERE material_id=? AND loan_date=?", (mid, date)
-        ).fetchone()
-        is not None
-    )
-
-
 def process_single_loan(row):
     data = normalize_row(row)
     mid = data.get("資料ID", "")
     date = data.get("貸出日", "")
     if not mid:
         return None
-    isbn = get_isbn(data.get("URL", ""))
+    url = data.get("URL", "")
+    isbn = get_isbn(url)
     img_path = process_thumbnail(isbn)
     return (
         data.get("タイトル", ""),
@@ -48,7 +40,7 @@ def process_single_loan(row):
         data.get("出版社", ""),
         data.get("年月情報", ""),
         mid,
-        data.get("URL", ""),
+        url,
         isbn,
         img_path,
         "",
@@ -58,22 +50,15 @@ def process_single_loan(row):
 def insert_loans_parallel(rows, callback):
     conn = connect_db()
     create_table(conn)
-    to_process = [
-        r
-        for r in rows
-        if not record_exists(
-            conn, normalize_row(r).get("資料ID", ""), normalize_row(r).get("貸出日", "")
-        )
-    ]
-    total = len(to_process)
+    total = len(rows)
     if total == 0:
         conn.close()
         return
     with ThreadPoolExecutor(max_workers=10) as executor:
-        for [i, result] in enumerate(executor.map(process_single_loan, to_process)):
+        for [i, result] in enumerate(executor.map(process_single_loan, rows)):
             if result:
                 conn.execute(
-                    "INSERT INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                     result,
                 )
             callback(i + 1, total)

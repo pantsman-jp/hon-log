@@ -15,15 +15,20 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
-from src.db import connect_db, create_table, fetch_all_loans, get_db_path
+from src.db import (
+    connect_db,
+    create_table,
+    fetch_all_loans,
+    get_db_path,
+    insert_loans_parallel,
+)
 import csv
 
-VERSION = "v1.2.0"
+VERSION = "v1.3.0"
 
 
 def resource_path(relative_path):
-    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
-    return os.path.join(base_path, relative_path)
+    return os.path.join(getattr(sys, "_MEIPASS", os.path.abspath(".")), relative_path)
 
 
 class ImportWorker(QThread):
@@ -35,8 +40,6 @@ class ImportWorker(QThread):
         self.csv_path = csv_path
 
     def run(self):
-        from src.db import insert_loans_parallel
-
         rows = list(csv.DictReader(open(self.csv_path, encoding="utf-8-sig")))
         insert_loans_parallel(rows, self.progress.emit)
         self.finished.emit()
@@ -53,14 +56,16 @@ class BookWidget(QWidget):
         img_label = QLabel()
         no_image = resource_path(os.path.join("assets", "img", "no-image.png"))
         raw_path = self.row[5]
-        img_path = (
-            raw_path
-            if isinstance(raw_path, str) and os.path.exists(raw_path)
-            else no_image
-        )
+        if isinstance(raw_path, str) and os.path.exists(raw_path):
+            img_path = raw_path
+        else:
+            img_path = no_image
         pix = QPixmap(img_path)
         if pix.isNull():
-            pix = QPixmap(no_image) if os.path.exists(no_image) else QPixmap(120, 160)
+            if os.path.exists(no_image):
+                pix = QPixmap(no_image)
+            else:
+                pix = QPixmap(120, 160)
         img_label.setPixmap(
             pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
@@ -130,7 +135,10 @@ class App(QWidget):
         dialog = QDialog(self)
         layout = QVBoxLayout(dialog)
         text_edit = QTextEdit()
-        text_edit.setText(current_review if current_review else "")
+        if current_review:
+            text_edit.setText(current_review)
+        else:
+            text_edit.setText("")
         save_btn = QPushButton("保存")
         save_btn.clicked.connect(
             lambda: self.save_review(dialog, db_id, text_edit.toPlainText())
