@@ -23,12 +23,14 @@ from src.db import (
     insert_loans_parallel,
 )
 import csv
+from src.thumbnail import get_image_dir
 
-VERSION = "v1.3.0"
+VERSION = "v1.3.1"
 
 
 def resource_path(relative_path):
-    return os.path.join(getattr(sys, "_MEIPASS", os.path.abspath(".")), relative_path)
+    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
 
 
 class ImportWorker(QThread):
@@ -53,19 +55,21 @@ class BookWidget(QWidget):
 
     def init_ui(self, on_click):
         layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
         no_image = resource_path(os.path.join("assets", "img", "no-image.png"))
-        raw_path = self.row[5]
-        if isinstance(raw_path, str) and os.path.exists(raw_path):
-            img_path = raw_path
-        else:
-            img_path = no_image
+        isbn = self.row[5]
+        img_path = no_image
+        if isbn:
+            for ext in [".jpeg", ".jpg"]:
+                p = os.path.join(get_image_dir(), f"{isbn}{ext}")
+                if os.path.exists(p):
+                    img_path = p
+                    break
         pix = QPixmap(img_path)
         if pix.isNull():
-            if os.path.exists(no_image):
-                pix = QPixmap(no_image)
-            else:
-                pix = QPixmap(120, 160)
+            pix = QPixmap(no_image)
         img_label.setPixmap(
             pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
@@ -75,10 +79,7 @@ class BookWidget(QWidget):
         title.setFixedWidth(120)
         title.setWordWrap(True)
         title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-        self.setToolTip(
-            f"タイトル: {self.row[1]}\n著者: {self.row[2]}\n出版社: {self.row[3]}\n貸出日: {self.row[4]}"
-        )
+        layout.addWidget(title, alignment=Qt.AlignCenter)
 
 
 class App(QWidget):
