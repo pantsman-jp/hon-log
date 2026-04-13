@@ -75,7 +75,8 @@ python -m src.main
 - タイトル、貸出日、巻情報、著者、出版社、年月情報、資料ID、URL
 
 ## ライセンス・関連
-- アプリのアイコンは [favicon.io](https://favicon.io/favicon-generator/) で作成しました。
+- アプリのアイコンは [favicon.io](https://favicon.io/favicon-generator/) で作成しました
+- 画像は[いらすとや](https://www.irasutoya.com/)のものを使用しています
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)

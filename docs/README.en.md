@@ -2,7 +2,7 @@
 
 [日本語](https://github.com/pantsman-jp/hon-log/blob/main/README.md)
 
-The latest version is available [here](https://github.com/pantsman-jp/hon-log/releases/latest).
+The latest release is [here](https://github.com/pantsman-jp/hon-log/releases/latest).
 
 ## Overview
 This desktop application uses the [Kyushu Institute of Technology Library Loan History (CSV)](https://www.lib.kyutech.ac.jp/library/ja/node/2061) to perform the following tasks:
@@ -10,110 +10,72 @@ This desktop application uses the [Kyushu Institute of Technology Library Loan H
 - Convert loan history to a database (SQLite)
 - Automatically retrieve ISBNs
 - Retrieve and save book cover images
-- Grid display of book cover list (PySide6)
+- Display a grid view of book covers (PySide6)
 - Saving and editing reviews
 
-**An internet connection is required to use the app.**
+**An internet connection is required to use this app.**
 
 ## Main Features
-
 ### 1. CSV to DB Conversion
-- Reads CSV files and registers data in an SQLite database
-- Duplicate data is not registered (determined by material_id + loan_date)
+- Reads CSV files and registers them in an SQLite database
+- Duplicate data is not registered (determined by `material_id` + `loan_date`)
 
 ### 2. ISBN Retrieval
-- Retrieves HTML from the OPAC URL
-- Automatically extracts ISBNs
+- Automatically extracts ISBNs from OPAC URLs
 
 ### 3. Book Cover Retrieval
-- Generates book cover URLs from ISBNs
-- Downloads and saves images
+- Uses the National Diet Library (NDL) book cover API
+- Retrieved images are cached locally and can be viewed even offline
 
-### 4. GUI Display
-- Displays book covers in a grid (5 columns)
-- Displays book titles below
-
-### 5. Interaction
-- Hover -> Display detailed information
-- Click -> Enter and save review
+### 4. Clean Data Management
+- Saves the database and book covers to the **home directory (`~/.hon-log/`)**
+- Does not clutter the directory containing the app executable
 
 ## System Requirements
 `Python 3.12`
 
 ### Required Packages
-```zsh
+```shell
 pip install -r requirements.txt
+```
+### Creating an Executable (Windows)
+```shell
+pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=“assets/img/favicon.ico” --add-data “assets/img;assets/img” --noconsole
 ```
 
 ## Usage
-
-### 1. First Launch
-```zsh
+### 1. Launching
+```shell
 python -m src.main
 ```
 
-- A CSV selection dialog will appear
-- Selecting a CSV file will create the database
+Or run the built `hon-log.exe` file.
 
-#### Note
-The first launch takes a long time to retrieve book covers.
+- First launch: The UI will appear. Select a CSV file using the “Add New/Update” button.
+- Subsequent launches: Previously imported data will be displayed automatically.
 
-### 2. Normal Launch (2nd time and beyond)
-```zsh
-python -m src.main
-```
+### 2. Update
+- Click the “Add New/Update” button and select a new CSV file.
+- Only new data will be added; existing data and reviews will be retained.
 
-- Data is loaded from the database and displayed
+## Data Storage Location
+App settings and data are stored in the following location. Please copy this folder when creating a backup.
 
-### 3. Update
-- Click the “Update” button
-- Select a new CSV file
-- Only new data is added (existing data is retained)
+- Windows: `C:\Users\Username\.hon-log\`
+
+| File/Folder | Contents |
+| ---: | :--- |
+| `loans.db` | Loan history data and reviews |
+| `img/` | Downloaded book cover images (`{isbn}.jpeg`) |
 
 ## CSV Specifications
-Must include the following columns:  
-- Title
-- Checkout Date
-- Volume Information
-- Author
-- Publisher
-- Year/Month Information
-- Material ID
-- URL
+The file must include the following columns (compatible with Kyushu Institute of Technology Library’s standard export format):
 
-### Notes
-- Leading spaces and BOMs in headers are normalized internally
+- Title, Loan Date, Volume Information, Author, Publisher, Year/Month Information, Material ID, URL
 
-## DB Specifications
-| Column Name | Description |
-| ---: | :--- |
-| id | Primary Key |
-| title | Title |
-| loan_date | Loan Date |
-| volume | Volume Information |
-| author | Author |
-| publisher | Publisher |
-| published_at | Publication Date |
-| material_id | Material ID |
-| url | URL |
-| isbn | ISBN |
-| image_path | Book Cover Path |
-| review | Review |
-
-## Book Cover Specifications
-
-### Storage Location
-```
-cache/img/{isbn}.jpg
-```
-
-### If No Cover Image Is Available
-```
-cache/img/no-image.png
-```
-
-## Related
-The app icon was created at <https://favicon.io/favicon-generator/>.
+## License & Related Information
+- The app icon was created using [favicon.io](https://favicon.io/favicon-generator/).
+- Images are sourced from [Irasutoya](https://www.irasutoya.com/).
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)
