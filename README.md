@@ -50,7 +50,7 @@ pip install -r requirements.txt
 ### 実行ファイル化 (Windows)
 
 ```shell
-pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets/img;assets/img" --noconsole
+pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets;assets" --noconsole
 ```
 
 ## 使用方法
