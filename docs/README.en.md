@@ -1,8 +1,14 @@
 # Hon-Log
 
-[日本語](https://github.com/pantsman-jp/hon-log/blob/main/README.md)
+[![Release-Build](https://github.com/pantsman-jp/hon-log/actions/workflows/release.yml/badge.svg)](https://github.com/pantsman-jp/hon-log/actions/workflows/release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/pantsman-jp/hon-log)](https://github.com/pantsman-jp/hon-log/releases/latest)
+[![License](https://img.shields.io/github/license/pantsman-jp/hon-log)](https://github.com/pantsman-jp/hon-log/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org)
+[![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/pantsman-jp/hon-log/latest/total)](https://github.com/pantsman-jp/hon-log/releases/latest)
 
-The latest release is [here](https://github.com/pantsman-jp/hon-log/releases/latest).
+## 日本語の README は[こちら](https://github.com/pantsman-jp/hon-log/blob/main/README.md)
+
+## The latest release is [here](https://github.com/pantsman-jp/hon-log/releases/latest).
 
 ## Overview
 
