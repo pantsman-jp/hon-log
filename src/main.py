@@ -28,7 +28,7 @@ from src.db import (
 )
 from src.utils import resource_path
 
-VERSION = "v1.7.1"
+VERSION = "v1.7.0"
 
 
 class ImportWorker(QThread):
