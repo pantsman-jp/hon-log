@@ -16,19 +16,19 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QFormLayout,
     QFrame,
+    QComboBox,
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QPixmap, QPainter
+from PySide6.QtGui import QPixmap
 from src.db import (
     connect_db,
     create_table,
-    fetch_all_loans,
     insert_loans_parallel,
     cleanup_duplicates,
 )
 from src.utils import resource_path
 
-VERSION = "v1.6.0"
+VERSION = "v1.7.1"
 
 
 class ImportWorker(QThread):
@@ -68,20 +68,9 @@ class BookWidget(QWidget):
         pix = QPixmap(img_path)
         if pix.isNull():
             pix = QPixmap(resource_path("assets", "img", "no-image.png"))
-        canvas = pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        if (self.row[6] is None) or (self.row[6] == ""):
-            label_pix = QPixmap(resource_path("assets", "img", "none.png"))
-            if not label_pix.isNull():
-                painter = QPainter(canvas)
-                painter.drawPixmap(
-                    0,
-                    0,
-                    label_pix.scaled(
-                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                    ),
-                )
-                painter.end()
-        img_label.setPixmap(canvas)
+        img_label.setPixmap(
+            pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
         img_label.mousePressEvent = lambda e: on_click(self.row[0])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
         title_label = QLabel(self.row[1])
@@ -141,11 +130,25 @@ class App(QWidget):
         super().__init__()
         self.ensure_rating_column()
         self.setWindowTitle(f"ほんろぐ {VERSION}")
-        self.resize(1000, 700)
+        self.resize(1100, 800)
         self.main_layout = QVBoxLayout(self)
+        self.control_layout = QHBoxLayout()
         self.btn_update = QPushButton("新規追加 / 更新")
         self.btn_update.clicked.connect(self.select_csv)
-        self.main_layout.addWidget(self.btn_update)
+        self.control_layout.addWidget(self.btn_update)
+        self.filter_combo = QComboBox()
+        self.filter_combo.addItems(["すべて表示", "感想あり", "未入力のみ"])
+        self.filter_combo.currentIndexChanged.connect(self.refresh_grid)
+        self.control_layout.addWidget(QLabel(" 絞り込み:"))
+        self.control_layout.addWidget(self.filter_combo)
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(
+            ["日付が新しい順", "日付が古い順", "評価が高い順", "タイトル順"]
+        )
+        self.sort_combo.currentIndexChanged.connect(self.refresh_grid)
+        self.control_layout.addWidget(QLabel(" 並び替え:"))
+        self.control_layout.addWidget(self.sort_combo)
+        self.main_layout.addLayout(self.control_layout)
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimumHeight(20)
         self.progress_bar.setVisible(False)
@@ -199,9 +202,23 @@ class App(QWidget):
         create_table(conn)
         conn.close()
         cleanup_duplicates()
+        query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating FROM loans"
+        conditions = []
+        if self.filter_combo.currentIndex() == 1:
+            conditions.append("(review IS NOT NULL AND review != '')")
+        elif self.filter_combo.currentIndex() == 2:
+            conditions.append("(review IS NULL OR review = '')")
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        sort_map = {
+            0: "loan_date DESC",
+            1: "loan_date ASC",
+            2: "rating DESC, loan_date DESC",
+            3: "title ASC",
+        }
+        query += f" ORDER BY {sort_map.get(self.sort_combo.currentIndex(), 'loan_date DESC')}"
         conn = connect_db()
-        rows = fetch_all_loans(conn)
-        for [i, row] in enumerate(rows):
+        for [i, row] in enumerate(conn.execute(query).fetchall()):
             self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
         conn.close()
 
