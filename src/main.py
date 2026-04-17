@@ -1,9 +1,11 @@
 import sys
 import os
+import csv
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QPushButton,
     QGridLayout,
     QLabel,
@@ -12,6 +14,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QProgressBar,
     QScrollArea,
+    QFormLayout,
+    QFrame,
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
@@ -21,16 +25,11 @@ from src.db import (
     fetch_all_loans,
     get_db_path,
     insert_loans_parallel,
+    cleanup_duplicates,
 )
-import csv
-from src.thumbnail import get_image_dir
+from src.utils import resource_path
 
-VERSION = "v1.3.1"
-
-
-def resource_path(relative_path):
-    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
-    return os.path.join(base_path, relative_path)
+VERSION = "v1.4.0"
 
 
 class ImportWorker(QThread):
@@ -42,9 +41,14 @@ class ImportWorker(QThread):
         self.csv_path = csv_path
 
     def run(self):
-        rows = list(csv.DictReader(open(self.csv_path, encoding="utf-8-sig")))
-        insert_loans_parallel(rows, self.progress.emit)
-        self.finished.emit()
+        try:
+            with open(self.csv_path, encoding="utf-8-sig") as f:
+                rows = list(csv.DictReader(f))
+            insert_loans_parallel(rows, self.progress.emit)
+        except Exception:
+            pass
+        finally:
+            self.finished.emit()
 
 
 class BookWidget(QWidget):
@@ -58,22 +62,19 @@ class BookWidget(QWidget):
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
-        no_image = resource_path(os.path.join("assets", "img", "no-image.png"))
-        isbn = self.row[5]
+        no_image = resource_path("assets", "img", "no-image.png")
+        path_in_row = self.row[9]
         img_path = no_image
-        if isbn:
-            for ext in [".jpeg", ".jpg"]:
-                p = os.path.join(get_image_dir(), f"{isbn}{ext}")
-                if os.path.exists(p):
-                    img_path = p
-                    break
+        if path_in_row != "":
+            if os.path.exists(path_in_row):
+                img_path = path_in_row
         pix = QPixmap(img_path)
         if pix.isNull():
             pix = QPixmap(no_image)
         img_label.setPixmap(
             pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
-        img_label.mousePressEvent = lambda e: on_click(self.row[0], self.row[6])
+        img_label.mousePressEvent = lambda e: on_click(self.row[0])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
         title = QLabel(self.row[1])
         title.setFixedWidth(120)
@@ -92,6 +93,7 @@ class App(QWidget):
         self.btn_update.clicked.connect(self.select_csv)
         self.main_layout.addWidget(self.btn_update)
         self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimumHeight(20)
         self.progress_bar.setVisible(False)
         self.main_layout.addWidget(self.progress_bar)
         self.scroll = QScrollArea()
@@ -105,11 +107,13 @@ class App(QWidget):
 
     def select_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "CSV選択", "", "CSV (*.csv)")
-        if path:
+        if path != "":
             self.start_import(path)
 
     def start_import(self, path):
+        self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
+        QApplication.processEvents()
         self.worker = ImportWorker(path)
         self.worker.progress.connect(
             lambda c, t: self.progress_bar.setValue(int(c / t * 100))
@@ -122,30 +126,78 @@ class App(QWidget):
         self.refresh_grid()
 
     def refresh_grid(self):
-        while self.grid_layout.count():
+        while self.grid_layout.count() > 0:
             item = self.grid_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        cleanup_duplicates()
         conn = connect_db()
         create_table(conn)
-        for i, row in enumerate(fetch_all_loans(conn)):
-            self.grid_layout.addWidget(BookWidget(row, self.edit_review), i // 5, i % 5)
+        rows = fetch_all_loans(conn)
+        for [i, row] in enumerate(rows):
+            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
         conn.close()
 
-    def edit_review(self, db_id, current_review):
+    def show_detail(self, db_id):
+        conn = connect_db()
+        book = conn.execute(
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path FROM loans WHERE id=?",
+            (db_id,),
+        ).fetchone()
+        conn.close()
+        if book is None:
+            return
         dialog = QDialog(self)
-        layout = QVBoxLayout(dialog)
+        dialog.setWindowTitle("書籍詳細")
+        dialog.setMinimumWidth(600)
+        main_h_layout = QHBoxLayout(dialog)
+        left_layout = QVBoxLayout()
+        img_label = QLabel()
+        no_image = resource_path("assets", "img", "no-image.png")
+        path_in_db = book[8]
+        img_path = no_image
+        if path_in_db != "":
+            if os.path.exists(path_in_db):
+                img_path = path_in_db
+        pix = QPixmap(img_path)
+        if pix.isNull():
+            pix = QPixmap(no_image)
+        img_label.setPixmap(
+            pix.scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+        left_layout.addWidget(img_label, alignment=Qt.AlignTop)
+        left_layout.addStretch()
+        main_h_layout.addLayout(left_layout)
+        right_layout = QVBoxLayout()
+        form_frame = QFrame()
+        form_layout = QFormLayout(form_frame)
+        form_layout.addRow("タイトル:", QLabel(book[0]))
+        form_layout.addRow("著者:", QLabel(book[1]))
+        form_layout.addRow("出版社:", QLabel(book[2]))
+        form_layout.addRow("貸出日:", QLabel(book[3]))
+        isbn_val = book[4]
+        if isbn_val == "":
+            isbn_val = "なし"
+        form_layout.addRow("ISBN:", QLabel(isbn_val))
+        form_layout.addRow("資料ID:", QLabel(book[6]))
+        url_label = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
+        url_label.setOpenExternalLinks(True)
+        form_layout.addRow("URL:", url_label)
+        right_layout.addWidget(form_frame)
+        right_layout.addWidget(QLabel("感想 / レビュー:"))
         text_edit = QTextEdit()
-        if current_review:
-            text_edit.setText(current_review)
-        else:
-            text_edit.setText("")
-        save_btn = QPushButton("保存")
+        review_text = book[5]
+        if review_text is None:
+            review_text = ""
+        text_edit.setText(review_text)
+        right_layout.addWidget(text_edit)
+        save_btn = QPushButton("変更を保存")
         save_btn.clicked.connect(
             lambda: self.save_review(dialog, db_id, text_edit.toPlainText())
         )
-        layout.addWidget(text_edit)
-        layout.addWidget(save_btn)
+        right_layout.addWidget(save_btn)
+        main_h_layout.addLayout(right_layout)
         dialog.exec()
 
     def save_review(self, dialog, db_id, text):

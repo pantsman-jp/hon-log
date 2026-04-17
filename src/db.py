@@ -27,7 +27,7 @@ def process_single_loan(row):
     data = normalize_row(row)
     mid = data.get("資料ID", "")
     date = data.get("貸出日", "")
-    if not mid:
+    if mid == "":
         return None
     url = data.get("URL", "")
     isbn = get_isbn(url)
@@ -55,13 +55,16 @@ def insert_loans_parallel(rows, callback):
         conn.close()
         return
     with ThreadPoolExecutor(max_workers=10) as executor:
-        for [i, result] in enumerate(executor.map(process_single_loan, rows)):
-            if result:
-                conn.execute(
-                    "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                    result,
-                )
-            callback(i + 1, total)
+        try:
+            for [i, result] in enumerate(executor.map(process_single_loan, rows)):
+                if result is not None:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                        result,
+                    )
+                callback(i + 1, total)
+        except Exception:
+            pass
     conn.commit()
     conn.close()
     cleanup_duplicates()
@@ -78,5 +81,5 @@ def cleanup_duplicates():
 
 def fetch_all_loans(conn):
     return conn.execute(
-        "SELECT id,title,author,publisher,loan_date,isbn,review FROM loans ORDER BY loan_date DESC"
+        "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path FROM loans ORDER BY loan_date DESC"
     ).fetchall()

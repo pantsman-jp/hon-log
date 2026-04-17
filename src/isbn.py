@@ -19,23 +19,32 @@ def session():
 
 def get_html(url):
     try:
-        return session().get(url, timeout=10).text
+        r = session().get(url, timeout=10)
+        return r.text
     except Exception:
         return ""
 
 
 def parse_isbn(html):
-    if not html:
+    if html == "":
         return ""
     soup = BeautifulSoup(html, "html.parser")
     input_tag = soup.find("input", {"id": "lid_isbn"})
-    if input_tag and input_tag.get("value"):
-        return re.sub(r"\D", "", input_tag["value"])
-    m = re.search(r"97[89]\d{10,13}", soup.get_text())
-    return m.group(0) if m else ""
+    if input_tag is not None:
+        val = input_tag.get("value")
+        if val is not None:
+            return re.sub(r"\D", "", val)
+    text = soup.get_text()
+    m = re.search(r"97[89]\d{10,13}", text)
+    if m is not None:
+        return m.group(0)
+    return ""
 
 
 def get_isbn(url):
     if url == "":
         return ""
+    m = re.search(r"isbn=(97[89]\d{10,13})", url)
+    if m is not None:
+        return m.group(1)
     return parse_isbn(get_html(url))
