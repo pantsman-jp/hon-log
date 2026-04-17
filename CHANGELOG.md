@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v1.5.0 (2026-04-17)
+## [v1.5.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.5.0) (2026-04-17)
 
 ### 追加
 
@@ -15,13 +15,13 @@
 
 - 一部の環境において、実行ファイル化した際に `none.png` や `no-image.png` が表示されない問題を、データ追加（`--add-data`）の指定方法を変更することで修正
 
-## v1.4.0 (2026-04-17)
+## [v1.4.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.4.0) (2026-04-17)
 
 ### 追加
 
 - メイン画面の書影をクリックすることで、書籍の詳細情報（タイトル、著者、出版社、貸出日、ISBN、資料ID、URL）をダイアログ表示する機能
 
-## v1.3.1 (2026-04-13)
+## [v1.3.1](https://github.com/pantsman-jp/hon-log/releases/tag/v1.3.1) (2026-04-13)
 
 ### 追加
 
@@ -32,7 +32,7 @@
 
 - `BookWidget` 内の画像とタイトルのアライメントを修正し、垂直方向の中心線が一致するように調整
 
-## v1.3.0 (2026-04-13)
+## [v1.3.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.3.0) (2026-04-13)
 
 ### 追加
 
@@ -48,21 +48,21 @@
 
 - HTML パース時の ISBN 抽出において、不要な非数字文字を除去するクレンジング処理を追加
 
-## v1.2.0 (2026-04-12)
+## [v1.2.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.2.0) (2026-04-12)
 
 ### 追加
 
 - アプリケーションのタイトルバーに現在のバージョン（v1.1.0）を表示するように変更
 - `main.py` に `VERSION` 変数を導入し、一括管理を可能にした
 
-## v1.1.0 (2026-04-11)
+## [v1.1.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.1.0) (2026-04-11)
 
 - `src/isbn.py` においてスレッド間で単一の `requests.Session` を共有し、HTTP アダプタのコネクションプールを最適化
 - 同一ドメインへの接続を再利用することで、2件目以降のリクエスト速度を大幅に向上
 - OPAC の URL に ISBN が含まれる場合、HTML を取得せずに抽出するロジックを追加し、通信回数を削減
 - `insert_loans_parallel` における並列実行数を最大10スレッドへ調整
 
-## v1.0.0 (2026-04-11)
+## [v1.0.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.0.0) (2026-04-11)
 
 ### 追加
 
@@ -79,7 +79,7 @@
 
 - 実行ファイル化環境において、内部の `assets` フォルダとユーザーデータフォルダの参照が混同される問題を解消
 
-## v0.4.2 (2026-04-11)
+## [v0.4.2](https://github.com/pantsman-jp/hon-log/releases/tag/v0.4.2) (2026-04-11)
 
 ### 変更
 
@@ -97,14 +97,14 @@
 - `QPixmap::scaled: Pixmap is a null pixmap` が大量発生する問題を解消（画像パス不整合による読み込み失敗が原因）
 - 実行ファイルで書影が表示されず常にno-imageになる問題を修正
 
-## v0.4.1 (2026-04-11)
+## [v0.4.1](https://github.com/pantsman-jp/hon-log/releases/tag/v0.4.1) (2026-04-11)
 
 ### 変更
 
 - Windows 向け開発に専念し、`src/utils.py` の `resource_path` 関数で macOS 固有の条件を削除
 - `README.md` を Windows 向けの説明に統一（コマンド例を `zsh` から `shell` に変更、macOS のビルド例を削除）
 
-## v0.4.0 (2026-04-10)
+## [v0.4.0](https://github.com/pantsman-jp/hon-log/releases/tag/v0.4.0) (2026-04-10)
 
 ### 追加
 
