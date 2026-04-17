@@ -23,13 +23,12 @@ from src.db import (
     connect_db,
     create_table,
     fetch_all_loans,
-    get_db_path,
     insert_loans_parallel,
     cleanup_duplicates,
 )
 from src.utils import resource_path
 
-VERSION = "v1.5.0"
+VERSION = "v1.6.0"
 
 
 class ImportWorker(QThread):
@@ -70,19 +69,7 @@ class BookWidget(QWidget):
         if pix.isNull():
             pix = QPixmap(resource_path("assets", "img", "no-image.png"))
         canvas = pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        if self.row[6] is None:
-            label_pix = QPixmap(resource_path("assets", "img", "none.png"))
-            if not label_pix.isNull():
-                painter = QPainter(canvas)
-                painter.drawPixmap(
-                    0,
-                    0,
-                    label_pix.scaled(
-                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                    ),
-                )
-                painter.end()
-        elif self.row[6] == "":
+        if (self.row[6] is None) or (self.row[6] == ""):
             label_pix = QPixmap(resource_path("assets", "img", "none.png"))
             if not label_pix.isNull():
                 painter = QPainter(canvas)
@@ -104,9 +91,55 @@ class BookWidget(QWidget):
         layout.addWidget(title_label, alignment=Qt.AlignCenter)
 
 
+class StarRatingWidget(QWidget):
+    def __init__(self, initial_rating=0):
+        super().__init__()
+        self.rating = initial_rating
+        self.stars = []
+        self.init_ui()
+
+    def init_ui(self):
+        self.star_layout = QHBoxLayout(self)
+        self.star_layout.setContentsMargins(0, 0, 0, 0)
+        self.star_layout.setSpacing(5)
+        self.refresh_stars()
+
+    def refresh_stars(self):
+        while self.star_layout.count() > 0:
+            item = self.star_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.stars = []
+        for i in range(1, 6):
+            star = QLabel()
+            icon_name = "star-on.png" if i <= self.rating else "star-off.png"
+            pix = QPixmap(resource_path("assets", "img", icon_name))
+            if pix.isNull():
+                pix = QPixmap(32, 32)
+                pix.fill(Qt.transparent)
+            star.setPixmap(
+                pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
+            star.setCursor(Qt.PointingHandCursor)
+            star.mousePressEvent = lambda e, val=i: self.set_rating(val)
+            self.star_layout.addWidget(star)
+            self.stars.append(star)
+
+    def set_rating(self, val):
+        if val == self.rating:
+            self.rating = 0
+        else:
+            self.rating = val
+        self.refresh_stars()
+
+    def get_rating(self):
+        return self.rating
+
+
 class App(QWidget):
     def __init__(self):
         super().__init__()
+        self.ensure_rating_column()
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1000, 700)
         self.main_layout = QVBoxLayout(self)
@@ -123,8 +156,18 @@ class App(QWidget):
         self.grid_layout = QGridLayout(self.grid_container)
         self.scroll.setWidget(self.grid_container)
         self.main_layout.addWidget(self.scroll)
-        if os.path.exists(get_db_path()):
-            self.refresh_grid()
+        self.refresh_grid()
+
+    def ensure_rating_column(self):
+        conn = connect_db()
+        create_table(conn)
+        try:
+            conn.execute("ALTER TABLE loans ADD COLUMN rating INTEGER DEFAULT 0")
+            conn.commit()
+        except Exception:
+            pass
+        finally:
+            conn.close()
 
     def select_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "CSV選択", "", "CSV (*.csv)")
@@ -152,9 +195,11 @@ class App(QWidget):
             w = item.widget()
             if w is not None:
                 w.deleteLater()
-        cleanup_duplicates()
         conn = connect_db()
         create_table(conn)
+        conn.close()
+        cleanup_duplicates()
+        conn = connect_db()
         rows = fetch_all_loans(conn)
         for [i, row] in enumerate(rows):
             self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
@@ -163,7 +208,7 @@ class App(QWidget):
     def show_detail(self, db_id):
         conn = connect_db()
         book = conn.execute(
-            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path FROM loans WHERE id=?",
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating FROM loans WHERE id=?",
             (db_id,),
         ).fetchone()
         conn.close()
@@ -195,33 +240,34 @@ class App(QWidget):
         form_layout.addRow("著者:", QLabel(book[1]))
         form_layout.addRow("出版社:", QLabel(book[2]))
         form_layout.addRow("貸出日:", QLabel(book[3]))
-        isbn_val = book[4]
-        if isbn_val == "":
-            isbn_val = "なし"
+        isbn_val = book[4] if book[4] != "" else "なし"
         form_layout.addRow("ISBN:", QLabel(isbn_val))
         form_layout.addRow("資料ID:", QLabel(book[6]))
         url_label = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
         url_label.setOpenExternalLinks(True)
         form_layout.addRow("URL:", url_label)
+        star_rating = StarRatingWidget(book[9] if book[9] is not None else 0)
+        form_layout.addRow("評価:", star_rating)
         right_layout.addWidget(form_frame)
         right_layout.addWidget(QLabel("感想 / レビュー:"))
         text_edit = QTextEdit()
-        review_text = book[5]
-        if review_text is None:
-            review_text = ""
-        text_edit.setText(review_text)
+        text_edit.setText(book[5] if book[5] is not None else "")
         right_layout.addWidget(text_edit)
         save_btn = QPushButton("変更を保存")
         save_btn.clicked.connect(
-            lambda: self.save_review(dialog, db_id, text_edit.toPlainText())
+            lambda: self.save_data(
+                dialog, db_id, text_edit.toPlainText(), star_rating.get_rating()
+            )
         )
         right_layout.addWidget(save_btn)
         main_h_layout.addLayout(right_layout)
         dialog.exec()
 
-    def save_review(self, dialog, db_id, text):
+    def save_data(self, dialog, db_id, text, rating):
         conn = connect_db()
-        conn.execute("UPDATE loans SET review=? WHERE id=?", (text, db_id))
+        conn.execute(
+            "UPDATE loans SET review=?, rating=? WHERE id=?", (text, rating, db_id)
+        )
         conn.commit()
         conn.close()
         dialog.accept()

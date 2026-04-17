@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [v1.6.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.6.0) (2026-04-17)
+
+### 追加
+
+- 書籍詳細画面に、星アイコンをクリックして評価を記録できる機能を実装
+    - `star-on.png` と `star-off.png` を使用した視覚的なフィードバック
+    - 評価値をデータベース（`loans` テーブルの `rating` カラム）に永続化
+    - 現在の評価と同じ星をクリックすることで、評価を「未評価（0）」にリセットできる仕様を採用
+- 既存のデータベースに `rating` カラムが存在しない場合、起動時に自動で追加する処理を実装
+
 ## [v1.5.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.5.0) (2026-04-17)
 
 ### 追加
