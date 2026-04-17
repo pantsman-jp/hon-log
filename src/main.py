@@ -29,6 +29,7 @@ from src.db import (
 from src.utils import resource_path
 
 VERSION = "v1.7.1"
+IMAGE_CACHE = {}
 
 
 class ImportWorker(QThread):
@@ -62,15 +63,20 @@ class BookWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
         img_path = resource_path("assets", "img", "no-image.png")
-        if self.row[9] != "":
-            if os.path.exists(self.row[9]):
-                img_path = self.row[9]
-        pix = QPixmap(img_path)
-        if pix.isNull():
-            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
-        img_label.setPixmap(
-            pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        )
+        if self.row[9] != "" and os.path.exists(self.row[9]):
+            img_path = self.row[9]
+        # キャッシュのチェック
+        if img_path in IMAGE_CACHE:
+            pix = IMAGE_CACHE[img_path]
+        else:
+            original_pix = QPixmap(img_path)
+            if original_pix.isNull():
+                original_pix = QPixmap(resource_path("assets", "img", "no-image.png"))
+            pix = original_pix.scaled(
+                120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            IMAGE_CACHE[img_path] = pix
+        img_label.setPixmap(pix)
         img_label.mousePressEvent = lambda e: on_click(self.row[0])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
         title_label = QLabel(self.row[1])
@@ -102,13 +108,19 @@ class StarRatingWidget(QWidget):
         for i in range(1, 6):
             star = QLabel()
             icon_name = "star-on.png" if i <= self.rating else "star-off.png"
-            pix = QPixmap(resource_path("assets", "img", icon_name))
-            if pix.isNull():
-                pix = QPixmap(32, 32)
-                pix.fill(Qt.transparent)
-            star.setPixmap(
-                pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            )
+            icon_path = resource_path("assets", "img", icon_name)
+            if icon_path in IMAGE_CACHE:
+                pix = IMAGE_CACHE[icon_path]
+            else:
+                raw_pix = QPixmap(icon_path)
+                if raw_pix.isNull():
+                    raw_pix = QPixmap(32, 32)
+                    raw_pix.fill(Qt.transparent)
+                pix = raw_pix.scaled(
+                    32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                IMAGE_CACHE[icon_path] = pix
+            star.setPixmap(pix)
             star.setCursor(Qt.PointingHandCursor)
             star.mousePressEvent = lambda e, val=i: self.set_rating(val)
             self.star_layout.addWidget(star)
@@ -238,9 +250,8 @@ class App(QWidget):
         left_layout = QVBoxLayout()
         img_label = QLabel()
         img_path = resource_path("assets", "img", "no-image.png")
-        if book[8] != "":
-            if os.path.exists(book[8]):
-                img_path = book[8]
+        if (book[8] != "") and os.path.exists(book[8]):
+            img_path = book[8]
         pix = QPixmap(img_path)
         if pix.isNull():
             pix = QPixmap(resource_path("assets", "img", "no-image.png"))

@@ -14,9 +14,23 @@ def connect_db():
 
 
 def create_table(conn):
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,loan_date TEXT,volume TEXT,author TEXT,publisher TEXT,published_at TEXT,material_id TEXT,url TEXT,isbn TEXT,image_path TEXT,review TEXT,UNIQUE(material_id,loan_date))"
-    )
+    conn.execute("""CREATE TABLE IF NOT EXISTS loans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        author TEXT,
+        publisher TEXT,
+        loan_date TEXT,
+        isbn TEXT,
+        review TEXT,
+        material_id TEXT,
+        url TEXT,
+        image_path TEXT,
+        rating INTEGER DEFAULT 0
+    )""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_loan_date ON loans(loan_date)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_rating ON loans(rating)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_review ON loans(review)")
+    conn.commit()
 
 
 def normalize_row(row):

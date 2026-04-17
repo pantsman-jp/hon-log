@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v1.7.1](https://github.com/pantsman-jp/hon-log/releases/tag/v1.7.1) (2026-04-17)
+
+### 追加
+
+- `loan_date`, `rating`, `review` の各カラムに SQLite インデックスを作成
+    - これにより、登録冊数が増加した場合でも、絞り込みや並び替えの実行速度が向上
+- メイン画面の書影および星評価アイコンの描画にメモリキャッシュ（`IMAGE_CACHE`）を実装
+    - CPU 負荷の高いリサイズ処理（`QPixmap.scaled`）を最小化し、スクロールや表示切り替え時のレスポンスを改善
+
+### 変更
+
+- `BookWidget` および `StarRatingWidget` において、一度生成したサムネイル画像をメモリから再利用するように変更
+- テーブル作成と同時にインデックス作成を行うようロジックを更新し、常に最適なパフォーマンスを維持
+
+### 修正
+
+- 大量データ表示時やソート切り替え時に発生していた UI の一時的なフリーズを解消
+
 ## [v1.7.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.7.0) (2026-04-17)
 
 ### 追加
