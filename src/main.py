@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QFrame,
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QPainter
 from src.db import (
     connect_db,
     create_table,
@@ -29,7 +29,7 @@ from src.db import (
 )
 from src.utils import resource_path
 
-VERSION = "v1.4.0"
+VERSION = "v1.5.0"
 
 
 class ImportWorker(QThread):
@@ -62,25 +62,46 @@ class BookWidget(QWidget):
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
-        no_image = resource_path("assets", "img", "no-image.png")
-        path_in_row = self.row[9]
-        img_path = no_image
-        if path_in_row != "":
-            if os.path.exists(path_in_row):
-                img_path = path_in_row
+        img_path = resource_path("assets", "img", "no-image.png")
+        if self.row[9] != "":
+            if os.path.exists(self.row[9]):
+                img_path = self.row[9]
         pix = QPixmap(img_path)
         if pix.isNull():
-            pix = QPixmap(no_image)
-        img_label.setPixmap(
-            pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        )
+            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
+        canvas = pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if self.row[6] is None:
+            label_pix = QPixmap(resource_path("assets", "img", "none.png"))
+            if not label_pix.isNull():
+                painter = QPainter(canvas)
+                painter.drawPixmap(
+                    0,
+                    0,
+                    label_pix.scaled(
+                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    ),
+                )
+                painter.end()
+        elif self.row[6] == "":
+            label_pix = QPixmap(resource_path("assets", "img", "none.png"))
+            if not label_pix.isNull():
+                painter = QPainter(canvas)
+                painter.drawPixmap(
+                    0,
+                    0,
+                    label_pix.scaled(
+                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    ),
+                )
+                painter.end()
+        img_label.setPixmap(canvas)
         img_label.mousePressEvent = lambda e: on_click(self.row[0])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
-        title = QLabel(self.row[1])
-        title.setFixedWidth(120)
-        title.setWordWrap(True)
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title, alignment=Qt.AlignCenter)
+        title_label = QLabel(self.row[1])
+        title_label.setFixedWidth(120)
+        title_label.setWordWrap(True)
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label, alignment=Qt.AlignCenter)
 
 
 class App(QWidget):
@@ -154,15 +175,13 @@ class App(QWidget):
         main_h_layout = QHBoxLayout(dialog)
         left_layout = QVBoxLayout()
         img_label = QLabel()
-        no_image = resource_path("assets", "img", "no-image.png")
-        path_in_db = book[8]
-        img_path = no_image
-        if path_in_db != "":
-            if os.path.exists(path_in_db):
-                img_path = path_in_db
+        img_path = resource_path("assets", "img", "no-image.png")
+        if book[8] != "":
+            if os.path.exists(book[8]):
+                img_path = book[8]
         pix = QPixmap(img_path)
         if pix.isNull():
-            pix = QPixmap(no_image)
+            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
         img_label.setPixmap(
             pix.scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )

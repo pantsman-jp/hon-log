@@ -27,7 +27,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Build executable
-      run: pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets/img;assets/img" --noconsole
+      run: pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets;assets" --noconsole
 
     - name: Get version from tag
       id: version
