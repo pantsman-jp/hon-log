@@ -1,6 +1,7 @@
 import sys
 import os
 import csv
+import webbrowser
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -27,9 +28,19 @@ from src.db import (
     insert_loans_parallel,
     cleanup_duplicates,
 )
-from src.utils import resource_path
+from src.utils import resource_path, get_latest_version
 
-VERSION = "v1.8.0"
+VERSION = "v1.9.0"
+REPO_URL = "pantsman-jp/hon-log"
+
+
+class UpdateChecker(QThread):
+    new_version_found = Signal(str)
+
+    def run(self):
+        latest = get_latest_version(REPO_URL)
+        if latest and latest != VERSION:
+            self.new_version_found.emit(latest)
 
 
 class ImportWorker(QThread):
@@ -130,6 +141,21 @@ class App(QWidget):
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
         self.main_layout = QVBoxLayout(self)
+        self.update_info_bar = QFrame()
+        self.update_info_bar.setVisible(False)
+        self.update_info_bar.setStyleSheet(
+            "background-color: #fff3cd; border-bottom: 1px solid #ffeeba;"
+        )
+        update_layout = QHBoxLayout(self.update_info_bar)
+        self.update_label = QLabel()
+        update_layout.addWidget(self.update_label)
+        btn_download = QPushButton("ダウンロード")
+        btn_download.clicked.connect(
+            lambda: webbrowser.open(f"https://github.com/{REPO_URL}/releases/latest")
+        )
+        update_layout.addWidget(btn_download)
+        update_layout.addStretch()
+        self.main_layout.addWidget(self.update_info_bar)
         self.control_layout = QHBoxLayout()
         self.btn_update = QPushButton("新規追加 / 更新")
         self.btn_update.clicked.connect(self.select_csv)
@@ -163,6 +189,16 @@ class App(QWidget):
         self.main_layout.addWidget(self.scroll)
         self.refresh_tag_combo()
         self.refresh_grid()
+        self.check_updates()
+
+    def check_updates(self):
+        self.update_checker = UpdateChecker()
+        self.update_checker.new_version_found.connect(self.show_update_bar)
+        self.update_checker.start()
+
+    def show_update_bar(self, latest_version):
+        self.update_label.setText(f"新しいバージョン {latest_version} が利用可能です。")
+        self.update_info_bar.setVisible(True)
 
     def ensure_schema_updates(self):
         conn = connect_db()

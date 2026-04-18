@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [v1.9.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.9.0) (2026-04-18)
+
+### 追加
+
+- 起動時に GitHub API を介して最新リリースを確認する `UpdateChecker` スレッドを実装
+- 新しいバージョンが存在する場合、メイン画面上部に通知を表示するインラインUIを追加
+- 通知バーから直接最新リリースのダウンロードページへ遷移する機能を追加
+
+### 変更
+
+- ネットワーク遅延による GUI のフリーズを防ぐため、バージョン確認処理を `QThread` によるバックグラウンド実行へ変更
+- `src/utils.py` に GitHub リポジトリから最新タグを取得する `get_latest_version` 関数を追加
+
+### 修正
+
+- インポート処理中の進捗バー（ProgressBar）と UI イベントループの同期を最適化
+
 ## [v1.8.0](https://github.com/pantsman-jp/hon-log/releases/tag/v1.8.0) (2026-04-18)
 
 ### 追加
