@@ -15,7 +15,7 @@ def connect_db():
 
 def create_table(conn):
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,loan_date TEXT,volume TEXT,author TEXT,publisher TEXT,published_at TEXT,material_id TEXT,url TEXT,isbn TEXT,image_path TEXT,review TEXT,UNIQUE(material_id,loan_date))"
+        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,loan_date TEXT,volume TEXT,author TEXT,publisher TEXT,published_at TEXT,material_id TEXT,url TEXT,isbn TEXT,image_path TEXT,review TEXT,rating INTEGER DEFAULT 0,tags TEXT DEFAULT '',UNIQUE(material_id,loan_date))"
     )
 
 
@@ -44,6 +44,8 @@ def process_single_loan(row):
         isbn,
         img_path,
         "",
+        0,
+        "",
     )
 
 
@@ -59,7 +61,7 @@ def insert_loans_parallel(rows, callback):
             for [i, result] in enumerate(executor.map(process_single_loan, rows)):
                 if result is not None:
                     conn.execute(
-                        "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review,rating,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         result,
                     )
                 callback(i + 1, total)
@@ -81,5 +83,5 @@ def cleanup_duplicates():
 
 def fetch_all_loans(conn):
     return conn.execute(
-        "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path FROM loans ORDER BY loan_date DESC"
+        "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans ORDER BY loan_date DESC"
     ).fetchall()

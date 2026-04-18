@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QFrame,
     QComboBox,
+    QLineEdit,
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
@@ -28,7 +29,7 @@ from src.db import (
 )
 from src.utils import resource_path
 
-VERSION = "v1.7.0"
+VERSION = "v1.8.0"
 
 
 class ImportWorker(QThread):
@@ -115,10 +116,7 @@ class StarRatingWidget(QWidget):
             self.stars.append(star)
 
     def set_rating(self, val):
-        if val == self.rating:
-            self.rating = 0
-        else:
-            self.rating = val
+        self.rating = 0 if val == self.rating else val
         self.refresh_stars()
 
     def get_rating(self):
@@ -128,7 +126,7 @@ class StarRatingWidget(QWidget):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.ensure_rating_column()
+        self.ensure_schema_updates()
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
         self.main_layout = QVBoxLayout(self)
@@ -141,6 +139,10 @@ class App(QWidget):
         self.filter_combo.currentIndexChanged.connect(self.refresh_grid)
         self.control_layout.addWidget(QLabel(" 絞り込み:"))
         self.control_layout.addWidget(self.filter_combo)
+        self.tag_combo = QComboBox()
+        self.tag_combo.currentIndexChanged.connect(self.refresh_grid)
+        self.control_layout.addWidget(QLabel(" タグ:"))
+        self.control_layout.addWidget(self.tag_combo)
         self.sort_combo = QComboBox()
         self.sort_combo.addItems(
             ["日付が新しい順", "日付が古い順", "評価が高い順", "タイトル順"]
@@ -159,18 +161,34 @@ class App(QWidget):
         self.grid_layout = QGridLayout(self.grid_container)
         self.scroll.setWidget(self.grid_container)
         self.main_layout.addWidget(self.scroll)
+        self.refresh_tag_combo()
         self.refresh_grid()
 
-    def ensure_rating_column(self):
+    def ensure_schema_updates(self):
         conn = connect_db()
         create_table(conn)
-        try:
+        cols = [i[1] for i in conn.execute("PRAGMA table_info(loans)").fetchall()]
+        if "rating" not in cols:
             conn.execute("ALTER TABLE loans ADD COLUMN rating INTEGER DEFAULT 0")
-            conn.commit()
-        except Exception:
-            pass
-        finally:
-            conn.close()
+        if "tags" not in cols:
+            conn.execute("ALTER TABLE loans ADD COLUMN tags TEXT DEFAULT ''")
+        conn.commit()
+        conn.close()
+
+    def refresh_tag_combo(self):
+        self.tag_combo.blockSignals(True)
+        self.tag_combo.clear()
+        self.tag_combo.addItem("すべてのタグ")
+        conn = connect_db()
+        rows = conn.execute(
+            "SELECT tags FROM loans WHERE tags IS NOT NULL AND tags != ''"
+        ).fetchall()
+        conn.close()
+        unique_tags = sorted(
+            list(set(t.strip() for r in rows for t in r[0].split(",") if t.strip()))
+        )
+        self.tag_combo.addItems(unique_tags)
+        self.tag_combo.blockSignals(False)
 
     def select_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "CSV選択", "", "CSV (*.csv)")
@@ -190,26 +208,25 @@ class App(QWidget):
 
     def on_import_finished(self):
         self.progress_bar.setVisible(False)
+        self.refresh_tag_combo()
         self.refresh_grid()
 
     def refresh_grid(self):
         while self.grid_layout.count() > 0:
             item = self.grid_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
-        conn = connect_db()
-        create_table(conn)
-        conn.close()
+            if item.widget():
+                item.widget().deleteLater()
         cleanup_duplicates()
-        query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating FROM loans"
-        conditions = []
+        query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans"
+        conds = []
         if self.filter_combo.currentIndex() == 1:
-            conditions.append("(review IS NOT NULL AND review != '')")
+            conds.append("(review IS NOT NULL AND review != '')")
         elif self.filter_combo.currentIndex() == 2:
-            conditions.append("(review IS NULL OR review = '')")
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            conds.append("(review IS NULL OR review = '')")
+        if self.tag_combo.currentIndex() > 0:
+            conds.append(f"tags LIKE '%{self.tag_combo.currentText()}%'")
+        if conds:
+            query += " WHERE " + " AND ".join(conds)
         sort_map = {
             0: "loan_date DESC",
             1: "loan_date ASC",
@@ -225,7 +242,7 @@ class App(QWidget):
     def show_detail(self, db_id):
         conn = connect_db()
         book = conn.execute(
-            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating FROM loans WHERE id=?",
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans WHERE id=?",
             (db_id,),
         ).fetchone()
         conn.close()
@@ -234,60 +251,64 @@ class App(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("書籍詳細")
         dialog.setMinimumWidth(600)
-        main_h_layout = QHBoxLayout(dialog)
-        left_layout = QVBoxLayout()
-        img_label = QLabel()
-        img_path = resource_path("assets", "img", "no-image.png")
-        if book[8] != "":
-            if os.path.exists(book[8]):
-                img_path = book[8]
-        pix = QPixmap(img_path)
+        main_h = QHBoxLayout(dialog)
+        left = QVBoxLayout()
+        img_l = QLabel()
+        img_p = resource_path("assets", "img", "no-image.png")
+        if book[8] != "" and os.path.exists(book[8]):
+            img_p = book[8]
+        pix = QPixmap(img_p)
         if pix.isNull():
             pix = QPixmap(resource_path("assets", "img", "no-image.png"))
-        img_label.setPixmap(
+        img_l.setPixmap(
             pix.scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
-        left_layout.addWidget(img_label, alignment=Qt.AlignTop)
-        left_layout.addStretch()
-        main_h_layout.addLayout(left_layout)
-        right_layout = QVBoxLayout()
-        form_frame = QFrame()
-        form_layout = QFormLayout(form_frame)
-        form_layout.addRow("タイトル:", QLabel(book[0]))
-        form_layout.addRow("著者:", QLabel(book[1]))
-        form_layout.addRow("出版社:", QLabel(book[2]))
-        form_layout.addRow("貸出日:", QLabel(book[3]))
-        isbn_val = book[4] if book[4] != "" else "なし"
-        form_layout.addRow("ISBN:", QLabel(isbn_val))
-        form_layout.addRow("資料ID:", QLabel(book[6]))
-        url_label = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
-        url_label.setOpenExternalLinks(True)
-        form_layout.addRow("URL:", url_label)
-        star_rating = StarRatingWidget(book[9] if book[9] is not None else 0)
-        form_layout.addRow("評価:", star_rating)
-        right_layout.addWidget(form_frame)
-        right_layout.addWidget(QLabel("感想 / レビュー:"))
-        text_edit = QTextEdit()
-        text_edit.setText(book[5] if book[5] is not None else "")
-        right_layout.addWidget(text_edit)
-        save_btn = QPushButton("変更を保存")
-        save_btn.clicked.connect(
+        left.addWidget(img_l, alignment=Qt.AlignTop)
+        left.addStretch()
+        main_h.addLayout(left)
+        right = QVBoxLayout()
+        form_f = QFrame()
+        form_l = QFormLayout(form_f)
+        form_l.addRow("タイトル:", QLabel(book[0]))
+        form_l.addRow("著者:", QLabel(book[1]))
+        form_l.addRow("出版社:", QLabel(book[2]))
+        form_l.addRow("貸出日:", QLabel(book[3]))
+        form_l.addRow("ISBN:", QLabel(book[4] if book[4] != "" else "なし"))
+        form_l.addRow("資料ID:", QLabel(book[6]))
+        url_l = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
+        url_l.setOpenExternalLinks(True)
+        form_l.addRow("URL:", url_l)
+        star = StarRatingWidget(book[9] if book[9] is not None else 0)
+        form_l.addRow("評価:", star)
+        tag_e = QLineEdit()
+        tag_e.setPlaceholderText("コンマ区切り (例: 技術書, Python)")
+        tag_e.setText(book[10] if book[10] is not None else "")
+        form_l.addRow("タグ:", tag_e)
+        right.addWidget(form_f)
+        right.addWidget(QLabel("感想 / レビュー:"))
+        text_e = QTextEdit()
+        text_e.setText(book[5] if book[5] is not None else "")
+        right.addWidget(text_e)
+        save_b = QPushButton("変更を保存")
+        save_b.clicked.connect(
             lambda: self.save_data(
-                dialog, db_id, text_edit.toPlainText(), star_rating.get_rating()
+                dialog, db_id, text_e.toPlainText(), star.get_rating(), tag_e.text()
             )
         )
-        right_layout.addWidget(save_btn)
-        main_h_layout.addLayout(right_layout)
+        right.addWidget(save_b)
+        main_h.addLayout(right)
         dialog.exec()
 
-    def save_data(self, dialog, db_id, text, rating):
+    def save_data(self, dialog, db_id, text, rating, tags):
         conn = connect_db()
         conn.execute(
-            "UPDATE loans SET review=?, rating=? WHERE id=?", (text, rating, db_id)
+            "UPDATE loans SET review=?, rating=?, tags=? WHERE id=?",
+            (text, rating, tags, db_id),
         )
         conn.commit()
         conn.close()
         dialog.accept()
+        self.refresh_tag_combo()
         self.refresh_grid()
 
 
