@@ -39,7 +39,7 @@ jobs:
       with:
         files: dist/hon-log.exe
         body: |
-          貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/top) からダウンロードできます。
+          貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/loan-history) からダウンロードできます。
           九工大IDでのログインが必要です。
 
           ## ダウンロード
