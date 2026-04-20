@@ -16,7 +16,7 @@
 
 Beyond just displaying history, it automatically fetches book covers, allows star ratings and tagging, and consolidates multiple loan records for the same book into a single entry.
 
-*** Note: An internet connection is required for fetching book covers and checking for updates.**
+**Note: An internet connection is required for fetching book covers and checking for updates.**
 
 ## Key Features
 
@@ -66,7 +66,7 @@ To backup or migrate your data, copy the following folder:
 - **Windows**: `C:\Users\<Username>\.hon-log\`
 
 | File/Folder | Description |
-| :--- | :--- |
+| ---: | :--- |
 | `loans.db` | SQLite database containing all history, reviews, ratings, and tags. |
 | `img/` | Cached book cover images (`{isbn}.jpeg`). |
 
