@@ -1,103 +1,86 @@
-# Hon-Log
+# hon-log
 
 [![Release-Build](https://github.com/pantsman-jp/hon-log/actions/workflows/release.yml/badge.svg)](https://github.com/pantsman-jp/hon-log/actions/workflows/release.yml)
-[![GitHub release](https://img.shields.io/github/v/release/pantsman-jp/hon-log)](https://github.com/pantsman-jp/hon-log/releases/latest)
+[![GitHub release](https://img.shields.io/github/v/release/pantsman-jp/hon-log)](https://img.shields.io/github/v/release/pantsman-jp/hon-log/latest)
 [![License](https://img.shields.io/github/license/pantsman-jp/hon-log)](https://github.com/pantsman-jp/hon-log/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org)
-[![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/pantsman-jp/hon-log/latest/total)](https://github.com/pantsman-jp/hon-log/releases/latest)
+[![GitHub Downloads](https://img.shields.io/github/downloads/pantsman-jp/hon-log/latest/total)](https://github.com/pantsman-jp/hon-log/releases/latest)
 
 ## 日本語の README は[こちら](https://github.com/pantsman-jp/hon-log/blob/main/README.md)
 
-## The latest release is [here](https://github.com/pantsman-jp/hon-log/releases/latest).
+## [Latest Release](https://github.com/pantsman-jp/hon-log/releases/latest)
 
 ## Overview
 
-This desktop application uses the [Kyushu Institute of Technology Library Loan History (CSV)](https://www.lib.kyutech.ac.jp/library/ja/node/2061) to perform the following tasks:
+**hon-log** is a desktop application that transforms your [Kyushu Institute of Technology (Kyutech) Library loan history (CSV)](https://www.lib.kyutech.ac.jp/library/ja/node/2061) into your own visual reading management catalog.
 
-- Convert loan history to a database (SQLite)
-- Automatically retrieve ISBNs
-- Retrieve and save book cover images
-- Display a grid view of book covers (PySide6)
-- Saving and editing reviews
+Beyond just displaying history, it automatically fetches book covers, allows star ratings and tagging, and consolidates multiple loan records for the same book into a single entry.
 
-**An internet connection is required to use this app.**
+*** Note: An internet connection is required for fetching book covers and checking for updates.**
 
-## Main Features
+## Key Features
 
-### 1. CSV to DB Conversion
+### 1. Smart Collection Management
+- **Consolidated View**: Multiple loans of the same book are grouped into one entry in the main list. You can view the full history of loan dates in the detail view.
+- **Metadata Extraction**: Automatically extracts ISBNs from OPAC URLs and fetches book covers from the National Diet Library (NDL) API.
+- **Persistent Data**: Imported data and reviews are stored in a local SQLite database, allowing offline browsing.
 
-- Reads CSV files and registers them in an SQLite database
-- Duplicate data is not registered (determined by `material_id` + `loan_date`)
+### 2. Comprehensive Rating & Tagging
+- **Star Ratings**: Integrated 5-star rating system for your books.
+- **Custom Tags**: Classify books using any keywords (e.g., "Technical," "Favorites").
+- **Review Logs**: Save reading logs, personal notes, and reviews for each book.
 
-### 2. ISBN Retrieval
-
-- Automatically extracts ISBNs from OPAC URLs
-
-### 3. Book Cover Retrieval
-
-- Uses the National Diet Library (NDL) book cover API
-- Retrieved images are cached locally and can be viewed even offline
+### 3. Intuitive UI/UX
+- **Filter & Sort**: Instantly filter by "Reviewed/Unreviewed" or "Specific Tags," and sort by "Rating," "Date," or "Title."
+- **Auto Update Checker**: Notifies you of the latest releases via GitHub API on startup.
+- **DB Maintenance**: Easily reset your data using the "Clear All" button.
 
 ### 4. Clean Data Management
-
-- Saves the database and book covers to the **home directory (`~/.hon-log/`)**
-- Does not clutter the directory containing the app executable
+- **Portable Design**: App settings and images are isolated in the **home directory (`~/.hon-log/`)**, keeping the application directory clean.
 
 ## System Requirements
 
-`Python 3.12`
+- **OS**: Windows 10 / 11 (Recommended)
+- **Python**: 3.12 or higher
 
-### Required Packages
+### Building the Executable (Windows)
+
+To build the app yourself, use the following commands:
 
 ```shell
 pip install -r requirements.txt
+pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets;assets" --noconsole
 ```
 
-### Creating an Executable (Windows)
+## How to Use
 
-```shell
-pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon=“assets/img/favicon.ico” --add-data “assets/img;assets/img” --noconsole
-```
-
-## Usage
-
-### 1. Launching
-
-```shell
-python -m src.main
-```
-
-Or run the built `hon-log.exe` file.
-
-- First launch: The UI will appear. Select a CSV file using the “Add New/Update” button.
-- Subsequent launches: Previously imported data will be displayed automatically.
-
-### 2. Update
-
-- Click the “Add New/Update” button and select a new CSV file.
-- Only new data will be added; existing data and reviews will be retained.
+1. **Launch**: Run `hon-log.exe`.
+2. **Import**: Click the "Import / Update" button and select the CSV file downloaded from the library.
+3. **Manage**: Click on a book cover to open the details, enter your rating, tags, or review, and click "Save Changes."
+4. **Organize**: Use the combo boxes at the top to quickly find the books you're looking for.
 
 ## Data Storage Location
 
-App settings and data are stored in the following location. Please copy this folder when creating a backup.
+To backup or migrate your data, copy the following folder:
 
-- Windows: `C:\Users\Username\.hon-log\`
+- **Windows**: `C:\Users\<Username>\.hon-log\`
 
-| File/Folder | Contents |
-| ---: | :--- |
-| `loans.db` | Loan history data and reviews |
-| `img/` | Downloaded book cover images (`{isbn}.jpeg`) |
+| File/Folder | Description |
+| :--- | :--- |
+| `loans.db` | SQLite database containing all history, reviews, ratings, and tags. |
+| `img/` | Cached book cover images (`{isbn}.jpeg`). |
 
 ## CSV Specifications
 
-The file must include the following columns (compatible with Kyushu Institute of Technology Library’s standard export format):
+Compatible with the standard export format of Kyutech Library (UTF-8 with BOM recommended).
 
-- Title, Loan Date, Volume Information, Author, Publisher, Year/Month Information, Material ID, URL
+- Required Columns: `Title`, `Loan Date`, `Volume`, `Author`, `Publisher`, `Published At`, `Material ID`, `URL`
 
-## License & Related Information
+## Licenses & Credits
 
-- The app icon was created using [favicon.io](https://favicon.io/favicon-generator/).
-- Images are sourced from [Irasutoya](https://www.irasutoya.com/).
+- **Icon**: Generated via [favicon.io](https://favicon.io/favicon-generator/)
+- **Illustration**: Materials from [Irasutoya](https://www.irasutoya.com/)
+- **Database**: SQLite3
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)
