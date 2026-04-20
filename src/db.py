@@ -69,19 +69,10 @@ def insert_loans_parallel(rows, callback):
             pass
     conn.commit()
     conn.close()
-    cleanup_duplicates()
 
 
-def cleanup_duplicates():
+def clear_database():
     conn = connect_db()
-    conn.execute(
-        "DELETE FROM loans WHERE id NOT IN (SELECT id FROM loans GROUP BY material_id HAVING MAX(loan_date))"
-    )
+    conn.execute("DELETE FROM loans")
     conn.commit()
     conn.close()
-
-
-def fetch_all_loans(conn):
-    return conn.execute(
-        "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans ORDER BY loan_date DESC"
-    ).fetchall()
