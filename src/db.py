@@ -13,10 +13,18 @@ def connect_db():
     return sqlite3.connect(get_db_path())
 
 
-def create_table(conn):
+def init_database(conn):
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,loan_date TEXT,volume TEXT,author TEXT,publisher TEXT,published_at TEXT,material_id TEXT,url TEXT,isbn TEXT,image_path TEXT,review TEXT,rating INTEGER DEFAULT 0,tags TEXT DEFAULT '',UNIQUE(material_id,loan_date))"
+        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, author TEXT, publisher TEXT, loan_date TEXT, isbn TEXT, review TEXT, material_id TEXT, url TEXT, image_path TEXT, rating INTEGER, volume TEXT, published_at TEXT, UNIQUE(material_id, loan_date))"
     )
+    cursor = conn.execute("PRAGMA table_info(loans)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "rating" not in columns:
+        conn.execute("ALTER TABLE loans ADD COLUMN rating INTEGER DEFAULT 0")
+    if "volume" not in columns:
+        conn.execute("ALTER TABLE loans ADD COLUMN volume TEXT")
+    if "published_at" not in columns:
+        conn.execute("ALTER TABLE loans ADD COLUMN published_at TEXT")
 
 
 def normalize_row(row):
@@ -34,24 +42,23 @@ def process_single_loan(row):
     img_path = process_thumbnail(isbn)
     return (
         data.get("タイトル", ""),
-        date,
-        data.get("巻情報", ""),
         data.get("著者", ""),
         data.get("出版社", ""),
-        data.get("年月情報", ""),
+        date,
+        isbn,
+        "",
         mid,
         url,
-        isbn,
         img_path,
-        "",
         0,
-        "",
+        data.get("巻情報", ""),
+        data.get("年月情報", ""),
     )
 
 
 def insert_loans_parallel(rows, callback):
     conn = connect_db()
-    create_table(conn)
+    init_database(conn)
     total = len(rows)
     if total == 0:
         conn.close()
@@ -61,7 +68,7 @@ def insert_loans_parallel(rows, callback):
             for [i, result] in enumerate(executor.map(process_single_loan, rows)):
                 if result is not None:
                     conn.execute(
-                        "INSERT OR IGNORE INTO loans(title,loan_date,volume,author,publisher,published_at,material_id,url,isbn,image_path,review,rating,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT OR IGNORE INTO loans(title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, volume, published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         result,
                     )
                 callback(i + 1, total)

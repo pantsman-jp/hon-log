@@ -30,21 +30,19 @@ def parse_isbn(html):
         return ""
     soup = BeautifulSoup(html, "html.parser")
     input_tag = soup.find("input", {"id": "lid_isbn"})
-    if input_tag is not None:
-        val = input_tag.get("value")
-        if val is not None:
-            return re.sub(r"\D", "", val)
+    if input_tag:
+        val = re.sub(r"\D", "", input_tag.get("value", ""))
+        if len(val) in [10, 13]:
+            return val
     text = soup.get_text()
-    m = re.search(r"97[89]\d{10,13}", text)
-    if m is not None:
-        return m.group(0)
-    return ""
+    m = re.search(r"(97[89]\d{10}|\b\d{9}[\dX]\b)", text)
+    return m.group(0) if m else ""
 
 
 def get_isbn(url):
     if url == "":
         return ""
-    m = re.search(r"isbn=(97[89]\d{10,13})", url)
-    if m is not None:
+    m = re.search(r"isbn=(97[89]\d{10}|\d{9}[\dX])", url)
+    if m:
         return m.group(1)
     return parse_isbn(get_html(url))

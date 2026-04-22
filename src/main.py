@@ -25,13 +25,13 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from src.db import (
     connect_db,
-    create_table,
+    init_database,
     insert_loans_parallel,
     clear_database,
 )
 from src.utils import resource_path, get_latest_version
 
-VERSION = "v2.0.0"
+VERSION = "v2.1.0"
 REPO_URL = "pantsman-jp/hon-log"
 
 
@@ -45,7 +45,7 @@ class UpdateChecker(QThread):
 
 
 class ImportWorker(QThread):
-    progress = Signal(int, int)
+    progress = Signal(int)
     finished = Signal()
 
     def __init__(self, csv_path):
@@ -56,7 +56,9 @@ class ImportWorker(QThread):
         try:
             with open(self.csv_path, encoding="utf-8-sig") as f:
                 rows = list(csv.DictReader(f))
-            insert_loans_parallel(rows, self.progress.emit)
+            insert_loans_parallel(
+                rows, lambda c, t: self.progress.emit(int(c / t * 100))
+            )
         except Exception:
             pass
         finally:
@@ -75,7 +77,7 @@ class BookWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
         img_path = resource_path("assets", "img", "no-image.png")
-        if self.row[9] != "" and os.path.exists(self.row[9]):
+        if self.row[9] and os.path.exists(self.row[9]):
             img_path = self.row[9]
         pix = QPixmap(img_path)
         if pix.isNull():
@@ -137,7 +139,9 @@ class StarRatingWidget(QWidget):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.ensure_schema_updates()
+        conn = connect_db()
+        init_database(conn)
+        conn.close()
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
         self.main_layout = QVBoxLayout(self)
@@ -203,17 +207,6 @@ class App(QWidget):
         self.update_label.setText(f"新しいバージョン {latest_version} が利用可能です。")
         self.update_info_bar.setVisible(True)
 
-    def ensure_schema_updates(self):
-        conn = connect_db()
-        create_table(conn)
-        cols = [i[1] for i in conn.execute("PRAGMA table_info(loans)").fetchall()]
-        if "rating" not in cols:
-            conn.execute("ALTER TABLE loans ADD COLUMN rating INTEGER DEFAULT 0")
-        if "tags" not in cols:
-            conn.execute("ALTER TABLE loans ADD COLUMN tags TEXT DEFAULT ''")
-        conn.commit()
-        conn.close()
-
     def refresh_tag_combo(self):
         self.tag_combo.blockSignals(True)
         self.tag_combo.clear()
@@ -239,9 +232,7 @@ class App(QWidget):
         self.progress_bar.setVisible(True)
         QApplication.processEvents()
         self.worker = ImportWorker(path)
-        self.worker.progress.connect(
-            lambda c, t: self.progress_bar.setValue(int(c / t * 100))
-        )
+        self.worker.progress.connect(self.progress_bar.setValue)
         self.worker.finished.connect(self.on_import_finished)
         self.worker.start()
 
@@ -268,7 +259,7 @@ class App(QWidget):
             item = self.grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        query = "SELECT id, title, author, publisher, MAX(loan_date), isbn, review, material_id, url, image_path, rating, tags FROM loans"
+        query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, volume, published_at, tags FROM loans"
         conds = []
         if self.filter_combo.currentIndex() == 1:
             conds.append("(review IS NOT NULL AND review != '')")
@@ -294,7 +285,7 @@ class App(QWidget):
     def show_detail(self, material_id):
         conn = connect_db()
         book = conn.execute(
-            "SELECT title, author, publisher, MAX(loan_date), isbn, review, material_id, url, image_path, rating, tags FROM loans WHERE material_id=?",
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags, volume, published_at FROM loans WHERE material_id=?",
             (material_id,),
         ).fetchone()
         dates_rows = conn.execute(
@@ -312,7 +303,7 @@ class App(QWidget):
         left = QVBoxLayout()
         img_l = QLabel()
         img_p = resource_path("assets", "img", "no-image.png")
-        if book[8] != "" and os.path.exists(book[8]):
+        if book[8] and os.path.exists(book[8]):
             img_p = book[8]
         pix = QPixmap(img_p)
         if pix.isNull():
@@ -329,8 +320,10 @@ class App(QWidget):
         form_l.addRow("タイトル:", QLabel(book[0]))
         form_l.addRow("著者:", QLabel(book[1]))
         form_l.addRow("出版社:", QLabel(book[2]))
+        form_l.addRow("巻情報:", QLabel(book[11] if book[11] else "-"))
+        form_l.addRow("出版年月:", QLabel(book[12] if book[12] else "-"))
         form_l.addRow("貸出履歴:", QLabel(", ".join(dates)))
-        form_l.addRow("ISBN:", QLabel(book[4] if book[4] != "" else "なし"))
+        form_l.addRow("ISBN:", QLabel(book[4] if book[4] else "なし"))
         form_l.addRow("資料ID:", QLabel(book[6]))
         url_l = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
         url_l.setOpenExternalLinks(True)
@@ -339,12 +332,12 @@ class App(QWidget):
         form_l.addRow("評価:", star)
         tag_e = QLineEdit()
         tag_e.setPlaceholderText("コンマ区切り (例: 技術書, Python)")
-        tag_e.setText(book[10] if book[10] is not None else "")
+        tag_e.setText(book[10] if book[10] else "")
         form_l.addRow("タグ:", tag_e)
         right.addWidget(form_f)
         right.addWidget(QLabel("感想 / レビュー:"))
         text_e = QTextEdit()
-        text_e.setText(book[5] if book[5] is not None else "")
+        text_e.setText(book[5] if book[5] else "")
         right.addWidget(text_e)
         save_b = QPushButton("変更を保存")
         save_b.clicked.connect(

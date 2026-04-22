@@ -18,21 +18,54 @@ def get_image_dir():
     return dir
 
 
-def download_image(isbn):
+def fetch_ndl(isbn):
     try:
         r = requests.get(
             f"https://ndlsearch.ndl.go.jp/thumbnail/{isbn}.jpg",
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://ndlsearch.ndl.go.jp/",
-            },
-            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5,
         )
-        if r.status_code == 200:
-            return r.content
-        return None
+        return r.content if r.status_code == 200 else None
     except Exception:
         return None
+
+
+def fetch_google(isbn):
+    try:
+        r = requests.get(
+            f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}", timeout=5
+        )
+        data = r.json()
+        url = (
+            data.get("items", [{}])[0]
+            .get("volumeInfo", {})
+            .get("imageLinks", {})
+            .get("thumbnail")
+        )
+        return (
+            requests.get(url.replace("http://", "https://"), timeout=5).content
+            if url
+            else None
+        )
+    except Exception:
+        return None
+
+
+def fetch_openlibrary(isbn):
+    try:
+        r = requests.get(
+            f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg", timeout=5
+        )
+        return r.content if r.status_code == 200 and len(r.content) > 1000 else None
+    except Exception:
+        return None
+
+
+def download_image(isbn):
+    return next(
+        filter(None, [fetch_ndl(isbn), fetch_google(isbn), fetch_openlibrary(isbn)]),
+        None,
+    )
 
 
 def process_thumbnail(isbn):
@@ -45,7 +78,7 @@ def process_thumbnail(isbn):
     if data is None:
         return ""
     try:
-        Image.open(BytesIO(data)).save(path, "JPEG")
+        Image.open(BytesIO(data)).convert("RGB").save(path, "JPEG")
         return path
     except Exception:
         return ""
