@@ -56,7 +56,9 @@ def fetch_openlibrary(isbn):
         r = requests.get(
             f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg", timeout=5
         )
-        return r.content if r.status_code == 200 and len(r.content) > 1000 else None
+        if r.status_code == 200 and len(r.content) > 1000:
+            return r.content
+        return None
     except Exception:
         return None
 

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [v2.1.1](https://github.com/pantsman-jp/hon-log/releases/tag/v2.1.1) (2026-04-23)
+
+### 修正
+
+- Open Library 等の外部 API が「画像なし」の際に返却するプレースホルダー画像を正常な書影として誤判定していた問題
+- 取得データのファイルサイズに基づく厳格なバリデーションを追加し、無効なデータによる上書きを防止
+- これにより、NDL や Google Books からの有効な書影が正しく優先・保持されるようになり、全体の取得率が改善
+
 ## [v2.1.0](https://github.com/pantsman-jp/hon-log/releases/tag/v2.1.0) (2026-04-22)
 
 ### 改善
