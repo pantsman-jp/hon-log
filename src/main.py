@@ -31,7 +31,7 @@ from src.db import (
 )
 from src.utils import resource_path, get_latest_version
 
-VERSION = "v2.1.0"
+VERSION = "v2.1.1"
 REPO_URL = "pantsman-jp/hon-log"
 
 
