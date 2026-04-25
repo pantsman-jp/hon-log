@@ -10,9 +10,7 @@ def session():
     if getattr(_thread_local, "session", None) is None:
         _thread_local.session = requests.Session()
         _thread_local.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
+            {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         )
     return getattr(_thread_local, "session")
 
@@ -29,9 +27,14 @@ def parse_isbn(html):
     if html == "":
         return ""
     soup = BeautifulSoup(html, "html.parser")
-    input_tag = soup.find("input", {"id": "lid_isbn"})
-    if input_tag:
-        val = re.sub(r"\D", "", input_tag.get("value", ""))
+    tag = soup.find("input", {"id": "lid_isbn"})
+    if tag:
+        val = re.sub(r"\D", "", tag.get("value", ""))
+        if len(val) in [10, 13]:
+            return val
+    meta = soup.find("meta", {"property": "books:isbn"})
+    if meta and meta.get("content"):
+        val = re.sub(r"\D", "", meta.get("content"))
         if len(val) in [10, 13]:
             return val
     text = soup.get_text()

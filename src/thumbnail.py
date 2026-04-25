@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 from io import BytesIO
 from PIL import Image
 
@@ -18,65 +19,104 @@ def get_image_dir():
     return dir
 
 
+def safe_get(url, timeout=5):
+    try:
+        time.sleep(0.2)
+        r = requests.get(url, timeout=timeout)
+        if r.status_code != 200:
+            return None
+        return r
+    except Exception:
+        return None
+
+
 def fetch_ndl(isbn):
     try:
+        time.sleep(0.2)
         r = requests.get(
             f"https://ndlsearch.ndl.go.jp/thumbnail/{isbn}.jpg",
-            headers={"User-Agent": "Mozilla/5.0"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://ndlsearch.ndl.go.jp/",
+            },
             timeout=5,
         )
-        return r.content if r.status_code == 200 else None
+        if r.status_code != 200:
+            return None
+        if len(r.content) < 1000:
+            return None
+        return r.content
     except Exception:
         return None
 
 
 def fetch_google(isbn):
-    try:
-        r = requests.get(
-            f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}", timeout=5
-        )
-        data = r.json()
-        url = (
-            data.get("items", [{}])[0]
-            .get("volumeInfo", {})
-            .get("imageLinks", {})
-            .get("thumbnail")
-        )
-        return (
-            requests.get(url.replace("http://", "https://"), timeout=5).content
-            if url
-            else None
-        )
-    except Exception:
+    r = safe_get(f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}")
+    if r is None:
         return None
+    data = r.json()
+    items = data.get("items")
+    if not items:
+        return None
+    for item in items:
+        info = item.get("volumeInfo", {})
+        links = info.get("imageLinks", {})
+        url = links.get("thumbnail") or links.get("smallThumbnail")
+        if url:
+            img = safe_get(url.replace("http://", "https://"))
+            return img.content if img else None
+    return None
+
+
+def fetch_google_query(query):
+    r = safe_get(f"https://www.googleapis.com/books/v1/volumes?q=intitle:{query}")
+    if r is None:
+        return None
+    data = r.json()
+    items = data.get("items")
+    if not items:
+        return None
+    for item in items:
+        info = item.get("volumeInfo", {})
+        links = info.get("imageLinks", {})
+        url = links.get("thumbnail") or links.get("smallThumbnail")
+        if url:
+            img = safe_get(url.replace("http://", "https://"))
+            return img.content if img else None
+    return None
 
 
 def fetch_openlibrary(isbn):
-    try:
-        r = requests.get(
-            f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg", timeout=5
+    r = safe_get(f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg")
+    if r and len(r.content) > 200:
+        return r.content
+    return None
+
+
+def download_image(isbn, query):
+    if isbn != "":
+        data = next(
+            filter(
+                None, [fetch_google(isbn), fetch_openlibrary(isbn), fetch_ndl(isbn)]
+            ),
+            None,
         )
-        if r.status_code == 200 and len(r.content) > 1000:
-            return r.content
-        return None
-    except Exception:
-        return None
+        if data:
+            return data
+    if query != "":
+        return fetch_google_query(query)
+    return None
 
 
-def download_image(isbn):
-    return next(
-        filter(None, [fetch_ndl(isbn), fetch_google(isbn), fetch_openlibrary(isbn)]),
-        None,
-    )
-
-
-def process_thumbnail(isbn):
-    if isbn == "":
+def process_thumbnail(isbn, query):
+    key = isbn if isbn != "" else query
+    if key == "":
         return ""
-    path = os.path.join(get_image_dir(), f"{isbn}.jpeg")
+    safe_key = key.replace("/", "_")
+    path = os.path.join(get_image_dir(), f"{safe_key}.jpeg")
     if os.path.exists(path):
         return path
-    data = download_image(isbn)
+    data = download_image(isbn, query)
     if data is None:
         return ""
     try:

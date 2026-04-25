@@ -15,7 +15,7 @@ def connect_db():
 
 def init_database(conn):
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, author TEXT, publisher TEXT, loan_date TEXT, isbn TEXT, review TEXT, material_id TEXT, url TEXT, image_path TEXT, rating INTEGER, volume TEXT, published_at TEXT, UNIQUE(material_id, loan_date))"
+        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,author TEXT,publisher TEXT,loan_date TEXT,isbn TEXT,review TEXT,material_id TEXT,url TEXT,image_path TEXT,rating INTEGER,volume TEXT,published_at TEXT,tags TEXT,UNIQUE(material_id,loan_date))"
     )
     cursor = conn.execute("PRAGMA table_info(loans)")
     columns = [row[1] for row in cursor.fetchall()]
@@ -25,6 +25,8 @@ def init_database(conn):
         conn.execute("ALTER TABLE loans ADD COLUMN volume TEXT")
     if "published_at" not in columns:
         conn.execute("ALTER TABLE loans ADD COLUMN published_at TEXT")
+    if "tags" not in columns:
+        conn.execute("ALTER TABLE loans ADD COLUMN tags TEXT")
 
 
 def normalize_row(row):
@@ -39,7 +41,8 @@ def process_single_loan(row):
         return None
     url = data.get("URL", "")
     isbn = get_isbn(url)
-    img_path = process_thumbnail(isbn)
+    query = data.get("タイトル", "") + " " + data.get("著者", "")
+    img_path = process_thumbnail(isbn, query)
     return (
         data.get("タイトル", ""),
         data.get("著者", ""),
@@ -53,6 +56,7 @@ def process_single_loan(row):
         0,
         data.get("巻情報", ""),
         data.get("年月情報", ""),
+        "",
     )
 
 
@@ -63,12 +67,12 @@ def insert_loans_parallel(rows, callback):
     if total == 0:
         conn.close()
         return
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         try:
             for [i, result] in enumerate(executor.map(process_single_loan, rows)):
                 if result is not None:
                     conn.execute(
-                        "INSERT OR IGNORE INTO loans(title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, volume, published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT OR IGNORE INTO loans(title,author,publisher,loan_date,isbn,review,material_id,url,image_path,rating,volume,published_at,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         result,
                     )
                 callback(i + 1, total)
