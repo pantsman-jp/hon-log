@@ -1,6 +1,6 @@
-import sys
-import os
 import csv
+import os
+import sys
 import webbrowser
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,12 +24,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from src.db import (
+    clear_database,
     connect_db,
     init_database,
     insert_loans_parallel,
-    clear_database,
 )
-from src.utils import resource_path, get_latest_version
+from src.utils import get_latest_version, resource_path
 
 VERSION = "v2.1.2"
 REPO_URL = "pantsman-jp/hon-log"
@@ -254,19 +254,24 @@ class App(QWidget):
             self.refresh_tag_combo()
             self.refresh_grid()
 
-    def refresh_grid(self):
-        while self.grid_layout.count() > 0:
-            item = self.grid_layout.takeAt(0)
+    def clear_layout(self, layout):
+        while layout.count() > 0:
+            item = layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+    def refresh_grid(self):
+        self.clear_layout(self.grid_layout)
         query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, volume, published_at, tags FROM loans"
         conds = []
+        params = []
         if self.filter_combo.currentIndex() == 1:
             conds.append("(review IS NOT NULL AND review != '')")
         elif self.filter_combo.currentIndex() == 2:
             conds.append("(review IS NULL OR review = '')")
         if self.tag_combo.currentIndex() > 0:
-            conds.append(f"tags LIKE '%{self.tag_combo.currentText()}%'")
+            conds.append("tags LIKE ?")
+            params.append(f"%{self.tag_combo.currentText()}%")
         if conds:
             query += " WHERE " + " AND ".join(conds)
         query += " GROUP BY material_id"
@@ -278,9 +283,10 @@ class App(QWidget):
         }
         query += f" ORDER BY {sort_map.get(self.sort_combo.currentIndex(), 'MAX(loan_date) DESC')}"
         conn = connect_db()
-        for [i, row] in enumerate(conn.execute(query).fetchall()):
-            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
+        rows = conn.execute(query, params).fetchall()
         conn.close()
+        for i, row in enumerate(rows):
+            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
 
     def show_detail(self, material_id):
         conn = connect_db()

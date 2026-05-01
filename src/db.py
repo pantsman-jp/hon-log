@@ -1,12 +1,19 @@
-import sqlite3
 import os
-from concurrent.futures import ThreadPoolExecutor
-from src.isbn import get_isbn
-from src.thumbnail import process_thumbnail, get_app_dir
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from src.isbn import extract_image_url, get_html, get_isbn
+from src.thumbnail import get_app_dir, process_thumbnail
+
+LOAN_INSERT_SQL = """INSERT OR IGNORE INTO loans(
+    title, author, publisher, loan_date, isbn, review, material_id,
+    url, image_path, rating, volume, published_at, tags
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
 
 def get_db_path():
-    return os.path.join(get_app_dir(), "loans.db")
+    app_dir = get_app_dir()
+    os.makedirs(app_dir, exist_ok=True)
+    return os.path.join(app_dir, "loans.db")
 
 
 def connect_db():
@@ -15,7 +22,23 @@ def connect_db():
 
 def init_database(conn):
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS loans(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,author TEXT,publisher TEXT,loan_date TEXT,isbn TEXT,review TEXT,material_id TEXT,url TEXT,image_path TEXT,rating INTEGER,volume TEXT,published_at TEXT,tags TEXT,UNIQUE(material_id,loan_date))"
+        "CREATE TABLE IF NOT EXISTS loans("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "title TEXT,"
+        "author TEXT,"
+        "publisher TEXT,"
+        "loan_date TEXT,"
+        "isbn TEXT,"
+        "review TEXT,"
+        "material_id TEXT,"
+        "url TEXT,"
+        "image_path TEXT,"
+        "rating INTEGER,"
+        "volume TEXT,"
+        "published_at TEXT,"
+        "tags TEXT,"
+        "UNIQUE(material_id,loan_date)"
+        ")"
     )
     cursor = conn.execute("PRAGMA table_info(loans)")
     columns = [row[1] for row in cursor.fetchall()]
@@ -30,27 +53,32 @@ def init_database(conn):
 
 
 def normalize_row(row):
-    return {k.replace("\ufeff", "").strip(): v.strip() for [k, v] in row.items()}
+    return {
+        k.replace("\ufeff", "").strip(): (v or "").strip() for [k, v] in row.items()
+    }
 
 
 def process_single_loan(row):
     data = normalize_row(row)
-    mid = data.get("資料ID", "")
-    date = data.get("貸出日", "")
-    if mid == "":
+    material_id = data.get("資料ID", "")
+    if material_id == "":
         return None
     url = data.get("URL", "")
-    isbn = get_isbn(url)
-    query = data.get("タイトル", "") + " " + data.get("著者", "")
-    img_path = process_thumbnail(isbn, query)
+    html = get_html(url)
+    isbn = get_isbn(url, html)
+    query = " ".join(
+        filter(None, [data.get("タイトル", ""), data.get("著者", "")])
+    ).strip()
+    img_url = extract_image_url(html)
+    img_path = process_thumbnail(isbn, query, img_url)
     return (
         data.get("タイトル", ""),
         data.get("著者", ""),
         data.get("出版社", ""),
-        date,
+        data.get("貸出日", ""),
         isbn,
         "",
-        mid,
+        material_id,
         url,
         img_path,
         0,
@@ -67,17 +95,18 @@ def insert_loans_parallel(rows, callback):
     if total == 0:
         conn.close()
         return
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        try:
-            for [i, result] in enumerate(executor.map(process_single_loan, rows)):
-                if result is not None:
-                    conn.execute(
-                        "INSERT OR IGNORE INTO loans(title,author,publisher,loan_date,isbn,review,material_id,url,image_path,rating,volume,published_at,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        result,
-                    )
-                callback(i + 1, total)
-        except Exception:
-            pass
+    with ThreadPoolExecutor(max_workers=min(3, total)) as executor:
+        futures = [executor.submit(process_single_loan, row) for row in rows]
+        completed = 0
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except Exception:
+                result = None
+            if result is not None:
+                conn.execute(LOAN_INSERT_SQL, result)
+            completed += 1
+            callback(completed, total)
     conn.commit()
     conn.close()
 

@@ -1,7 +1,7 @@
+import json
 import os
 import sys
-import urllib.request
-import json
+import requests
 
 
 def resource_path(*path_parts):
@@ -16,8 +16,8 @@ def get_latest_version(repo_url):
     try:
         url = f"https://api.github.com/repos/{repo_url}/releases/latest"
         headers = {"User-Agent": "hon-log-app"}
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=5) as response:
-            return json.loads(response.read().decode()).get("tag_name")
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        return response.json().get("tag_name")
     except Exception:
         return None
