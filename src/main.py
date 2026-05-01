@@ -23,15 +23,20 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
+from matplotlib.backends.backend_qtagg import (
+    FigureCanvasQTAgg as FigureCanvas,
+)
+from matplotlib.figure import Figure
 from src.db import (
     clear_database,
     connect_db,
     init_database,
     insert_loans_parallel,
 )
+from src.stats import get_author_loan_counts, get_monthly_loan_counts
 from src.utils import get_latest_version, resource_path
 
-VERSION = "v2.1.3"
+VERSION = "v2.2.0"
 REPO_URL = "pantsman-jp/hon-log"
 
 
@@ -182,6 +187,9 @@ class App(QWidget):
         self.btn_clear = QPushButton("全削除")
         self.btn_clear.clicked.connect(self.confirm_clear_db)
         self.control_layout.addWidget(self.btn_clear)
+        self.btn_stats = QPushButton("統計")
+        self.btn_stats.clicked.connect(self.show_statistics)
+        self.control_layout.addWidget(self.btn_stats)
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["すべて表示", "感想あり", "未入力のみ"])
         self.filter_combo.currentIndexChanged.connect(self.refresh_grid)
@@ -274,6 +282,46 @@ class App(QWidget):
             item = layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+    def show_statistics(self):
+        conn = connect_db()
+        author_data = get_author_loan_counts(conn)
+        monthly_data = get_monthly_loan_counts(conn)
+        conn.close()
+        dialog = QDialog(self)
+        dialog.setWindowTitle("貸出傾向分析")
+        dialog.resize(900, 700)
+        layout = QVBoxLayout(dialog)
+        if not author_data and not monthly_data:
+            layout.addWidget(QLabel("表示するデータがありません。"))
+            dialog.exec()
+            return
+        if author_data:
+            fig_author = Figure(figsize=(8, 4))
+            canvas_author = FigureCanvas(fig_author)
+            ax_author = fig_author.add_subplot(111)
+            authors, counts = zip(*author_data)
+            ax_author.set_title("著者別貸出頻度（上位20）")
+            ax_author.set_xlabel("貸出回数")
+            ax_author.set_ylabel("著者")
+            ax_author.grid(axis="x", linestyle="--", alpha=0.4)
+            fig_author.tight_layout()
+            layout.addWidget(canvas_author)
+        if monthly_data:
+            fig_month = Figure(figsize=(8, 4))
+            canvas_month = FigureCanvas(fig_month)
+            ax_month = fig_month.add_subplot(111)
+            months, counts = zip(*monthly_data)
+            ax_month.plot(months, counts, marker="o", linestyle="-", color="#dd8452")
+            ax_month.set_title("月別貸出冊数推移")
+            ax_month.set_xlabel("年月")
+            ax_month.set_ylabel("貸出冊数")
+            ax_month.set_xticks(months)
+            ax_month.set_xticklabels(months, rotation=45, ha="right")
+            ax_month.grid(True, linestyle="--", alpha=0.4)
+            fig_month.tight_layout()
+            layout.addWidget(canvas_month)
+        dialog.exec()
 
     def refresh_grid(self):
         self.clear_layout(self.grid_layout)
