@@ -1,28 +1,12 @@
+import functools
 import re
-import threading
-import requests
 from bs4 import BeautifulSoup
-
-_thread_local = threading.local()
-
-
-def session():
-    if getattr(_thread_local, "session", None) is None:
-        _thread_local.session = requests.Session()
-        _thread_local.session.headers.update(
-            {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        )
-    return _thread_local.session
+from src.network import fetch_text
 
 
+@functools.lru_cache(maxsize=128)
 def get_html(url):
-    if not url:
-        return ""
-    try:
-        r = session().get(url, timeout=10)
-        return r.text
-    except Exception:
-        return ""
+    return fetch_text(url, timeout=10)
 
 
 def parse_isbn(html):
@@ -70,6 +54,7 @@ def extract_image_url(html):
     return ""
 
 
+@functools.lru_cache(maxsize=256)
 def get_isbn(url, html=None):
     if not url:
         return ""

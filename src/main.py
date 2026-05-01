@@ -31,7 +31,7 @@ from src.db import (
 )
 from src.utils import get_latest_version, resource_path
 
-VERSION = "v2.1.2"
+VERSION = "v2.1.3"
 REPO_URL = "pantsman-jp/hon-log"
 
 
@@ -66,25 +66,40 @@ class ImportWorker(QThread):
 
 
 class BookWidget(QWidget):
+    _default_pixmap = None
+
     def __init__(self, row, on_click):
         super().__init__()
         self.row = row
         self.init_ui(on_click)
+
+    @classmethod
+    def default_pixmap(cls):
+        if cls._default_pixmap is None:
+            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
+            if pix.isNull():
+                pix = QPixmap(120, 160)
+                pix.fill(Qt.transparent)
+            cls._default_pixmap = pix.scaled(
+                120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+        return cls._default_pixmap
 
     def init_ui(self, on_click):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
-        img_path = resource_path("assets", "img", "no-image.png")
-        if self.row[9] and os.path.exists(self.row[9]):
-            img_path = self.row[9]
-        pix = QPixmap(img_path)
-        if pix.isNull():
-            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
-        img_label.setPixmap(
-            pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        )
+        img_path = self.row[9] if self.row[9] and os.path.exists(self.row[9]) else ""
+        if img_path:
+            pix = QPixmap(img_path)
+            if pix.isNull():
+                pix = self.default_pixmap()
+            else:
+                pix = pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        else:
+            pix = self.default_pixmap()
+        img_label.setPixmap(pix)
         img_label.mousePressEvent = lambda e: on_click(self.row[7])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
         title_label = QLabel(self.row[1])

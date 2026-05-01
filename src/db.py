@@ -17,7 +17,10 @@ def get_db_path():
 
 
 def connect_db():
-    return sqlite3.connect(get_db_path())
+    conn = sqlite3.connect(get_db_path())
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
 
 
 def init_database(conn):
@@ -95,6 +98,8 @@ def insert_loans_parallel(rows, callback):
     if total == 0:
         conn.close()
         return
+
+    results = []
     with ThreadPoolExecutor(max_workers=min(3, total)) as executor:
         futures = [executor.submit(process_single_loan, row) for row in rows]
         completed = 0
@@ -104,9 +109,12 @@ def insert_loans_parallel(rows, callback):
             except Exception:
                 result = None
             if result is not None:
-                conn.execute(LOAN_INSERT_SQL, result)
+                results.append(result)
             completed += 1
             callback(completed, total)
+
+    if results:
+        conn.executemany(LOAN_INSERT_SQL, results)
     conn.commit()
     conn.close()
 
