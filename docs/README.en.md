@@ -32,6 +32,7 @@ Beyond just displaying history, it automatically fetches book covers, allows sta
 
 ### 3. Intuitive UI/UX
 - **Filter & Sort**: Instantly filter by "Reviewed/Unreviewed" or "Specific Tags," and sort by "Rating," "Date," or "Title."
+- **Statistics**: Click the "Statistics" button on the main screen to view author loan frequency and monthly loan trend charts.
 - **Auto Update Checker**: Notifies you of the latest releases via GitHub API on startup.
 - **DB Maintenance**: Easily reset your data using the "Clear All" button.
 
@@ -57,7 +58,8 @@ pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/
 1. **Launch**: Run `hon-log.exe`.
 2. **Import**: Click the "Import / Update" button and select the CSV file downloaded from the library.
 3. **Manage**: Click on a book cover to open the details, enter your rating, tags, or review, and click "Save Changes."
-4. **Organize**: Use the combo boxes at the top to quickly find the books you're looking for.
+4. **Analyze**: Click the "Statistics" button on the main screen to open the lending trend analysis view.
+5. **Organize**: Use the combo boxes at the top to quickly find the books you're looking for.
 
 ## Data Storage Location
 

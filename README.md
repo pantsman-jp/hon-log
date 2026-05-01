@@ -32,6 +32,7 @@
 
 ### 3. 直感的なUI/UX
 - **絞り込み・並び替え**: 「感想の有無」「特定のタグ」での抽出や、「評価順」「日付順」でのソートが即座に行えます。
+- **統計機能**: メイン画面の「統計」ボタンから、著者別貸出頻度グラフや月別貸出冊数推移グラフを表示できます。
 - **自動アップデート確認**: 起動時に GitHub API を介して最新バージョンの有無を通知します。
 - **データベースメンテナンス**: 「全削除」ボタンにより、データの初期化も簡単に行えます。
 
@@ -57,7 +58,8 @@ pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/
 1. **起動**: `hon-log.exe` を実行します。
 2. **インポート**: 「新規追加 / 更新」ボタンから、図書館からダウンロードした CSV を選択します。
 3. **管理**: 書影をクリックして詳細画面を開き、評価や感想、タグを入力して「変更を保存」をクリックします。
-4. **整理**: 画面上部のコンボボックスを使い、目的の本を素早く見つけ出せます。
+4. **分析**: 画面上部の「統計」ボタンをクリックすると、貸出傾向分析画面が表示されます。
+5. **整理**: 画面上部のコンボボックスを使い、目的の本を素早く見つけ出せます。
 
 ## データの保存場所
 
@@ -78,9 +80,9 @@ pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/
 
 ## ライセンス・クレジット
 
-- **Icon**: [favicon.io](https://favicon.io/favicon-generator/) で生成
-- **Illustration**: [いらすとや](https://www.irasutoya.com/) の素材を使用
-- **Database**: SQLite3
+- **アイコン**: [favicon.io](https://favicon.io/favicon-generator/) で生成
+- **画像**: [いらすとや](https://www.irasutoya.com/) の素材を使用
+- **データベース**: SQLite3
 
 ---
 Copyright (c) 2026 [@pantsman](https://github.com/pantsman-jp)
