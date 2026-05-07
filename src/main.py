@@ -24,31 +24,33 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 import matplotlib as mpl
-from matplotlib.backends.backend_qtagg import (
-    FigureCanvasQTAgg as FigureCanvas,
-)
+import matplotlib.font_manager as font_manager
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from src.db import (
-    clear_database,
-    connect_db,
-    init_database,
-    insert_loans_parallel,
-)
+from src.db import clear_database, connect_db, init_database, insert_loans_parallel
 from src.stats import get_author_loan_counts, get_monthly_loan_counts
 from src.utils import get_latest_version, resource_path
 
+
+def choose_japanese_font():
+    installed = set(font_manager.get_font_names())
+    candidates = [
+        "MS Gothic",
+        "Yu Gothic",
+        "Meiryo",
+        "Hiragino Sans",
+        "IPAexGothic",
+        "Noto Sans CJK JP",
+        "DejaVu Sans",
+    ]
+    return next((f for f in candidates if f in installed), "sans-serif")
+
+
+JAPANESE_FONT = choose_japanese_font()
+mpl.rcParams["font.family"] = JAPANESE_FONT
+mpl.rcParams["axes.unicode_minus"] = False
 VERSION = "v2.2.1"
 REPO_URL = "pantsman-jp/hon-log"
-
-mpl.rcParams["font.family"] = "sans-serif"
-mpl.rcParams["font.sans-serif"] = [
-    "Noto Sans CJK JP",
-    "IPAPGothic",
-    "TakaoPGothic",
-    "Arial Unicode MS",
-    "DejaVu Sans",
-]
-mpl.rcParams["axes.unicode_minus"] = False
 
 
 class UpdateChecker(QThread):
@@ -71,10 +73,9 @@ class ImportWorker(QThread):
     def run(self):
         try:
             with open(self.csv_path, encoding="utf-8-sig") as f:
-                rows = list(csv.DictReader(f))
-            insert_loans_parallel(
-                rows, lambda c, t: self.progress.emit(int(c / t * 100))
-            )
+                insert_loans_parallel(
+                    list(csv.DictReader(f)), lambda p: self.progress.emit(p)
+                )
         except Exception:
             pass
         finally:
@@ -82,39 +83,23 @@ class ImportWorker(QThread):
 
 
 class BookWidget(QWidget):
-    _default_pixmap = None
-
     def __init__(self, row, on_click):
         super().__init__()
         self.row = row
         self.init_ui(on_click)
 
-    @classmethod
-    def default_pixmap(cls):
-        if cls._default_pixmap is None:
-            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
-            if pix.isNull():
-                pix = QPixmap(120, 160)
-                pix.fill(Qt.transparent)
-            cls._default_pixmap = pix.scaled(
-                120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-        return cls._default_pixmap
-
     def init_ui(self, on_click):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setContentsMargins(10, 10, 10, 10)
         img_label = QLabel()
-        img_path = self.row[9] if self.row[9] and os.path.exists(self.row[9]) else ""
-        if img_path:
-            pix = QPixmap(img_path)
-            if pix.isNull():
-                pix = self.default_pixmap()
-            else:
-                pix = pix.scaled(120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        else:
-            pix = self.default_pixmap()
+        path = (
+            self.row[9]
+            if self.row[9] and os.path.exists(self.row[9])
+            else resource_path("assets", "img", "no-image.png")
+        )
+        pix = QPixmap(path).scaled(
+            120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
         img_label.setPixmap(pix)
         img_label.mousePressEvent = lambda e: on_click(self.row[7])
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
@@ -129,67 +114,56 @@ class StarRatingWidget(QWidget):
     def __init__(self, initial_rating=0):
         super().__init__()
         self.rating = initial_rating
-        self.stars = []
-        self.init_ui()
-
-    def init_ui(self):
         self.star_layout = QHBoxLayout(self)
         self.star_layout.setContentsMargins(0, 0, 0, 0)
-        self.star_layout.setSpacing(5)
         self.refresh_stars()
 
     def refresh_stars(self):
-        while self.star_layout.count() > 0:
-            item = self.star_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self.stars = []
-        for i in range(1, 6):
-            star = QLabel()
-            icon_name = "star-on.png" if i <= self.rating else "star-off.png"
-            pix = QPixmap(resource_path("assets", "img", icon_name))
-            if pix.isNull():
-                pix = QPixmap(32, 32)
-                pix.fill(Qt.transparent)
-            star.setPixmap(
-                pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            )
-            star.setCursor(Qt.PointingHandCursor)
-            star.mousePressEvent = lambda e, val=i: self.set_rating(val)
-            self.star_layout.addWidget(star)
-            self.stars.append(star)
+        [
+            self.star_layout.takeAt(0).widget().deleteLater()
+            for _ in range(self.star_layout.count())
+            if self.star_layout.itemAt(0).widget()
+        ]
+        [self.star_layout.addWidget(self.create_star(i)) for i in range(1, 6)]
 
-    def set_rating(self, val):
-        self.rating = 0 if val == self.rating else val
-        self.refresh_stars()
-
-    def get_rating(self):
-        return self.rating
+    def create_star(self, index):
+        star = QLabel()
+        path = resource_path(
+            "assets", "img", "star-on.png" if index <= self.rating else "star-off.png"
+        )
+        star.setPixmap(
+            QPixmap(path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+        star.setCursor(Qt.PointingHandCursor)
+        star.mousePressEvent = lambda e: (
+            setattr(self, "rating", 0 if index == self.rating else index),
+            self.refresh_stars(),
+        )
+        return star
 
 
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        conn = connect_db()
-        init_database(conn)
-        conn.close()
+        init_database(connect_db())
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
         self.main_layout = QVBoxLayout(self)
+        self.init_ui()
+        self.check_updates()
+
+    def init_ui(self):
         self.update_info_bar = QFrame()
         self.update_info_bar.setVisible(False)
-        self.update_info_bar.setStyleSheet(
-            "background-color: #fff3cd; border-bottom: 1px solid #ffeeba;"
-        )
-        update_layout = QHBoxLayout(self.update_info_bar)
+        self.update_info_bar.setStyleSheet("background-color: #fff3cd;")
+        up_layout = QHBoxLayout(self.update_info_bar)
         self.update_label = QLabel()
-        update_layout.addWidget(self.update_label)
-        btn_download = QPushButton("ダウンロード")
-        btn_download.clicked.connect(
+        up_layout.addWidget(self.update_label)
+        btn_dl = QPushButton("ダウンロード")
+        btn_dl.clicked.connect(
             lambda: webbrowser.open(f"https://github.com/{REPO_URL}/releases/latest")
         )
-        update_layout.addWidget(btn_download)
-        update_layout.addStretch()
+        up_layout.addWidget(btn_dl)
         self.main_layout.addWidget(self.update_info_bar)
         self.control_layout = QHBoxLayout()
         self.btn_update = QPushButton("新規追加 / 更新")
@@ -204,22 +178,18 @@ class App(QWidget):
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["すべて表示", "感想あり", "未入力のみ"])
         self.filter_combo.currentIndexChanged.connect(self.refresh_grid)
-        self.control_layout.addWidget(QLabel(" 絞り込み:"))
         self.control_layout.addWidget(self.filter_combo)
         self.tag_combo = QComboBox()
         self.tag_combo.currentIndexChanged.connect(self.refresh_grid)
-        self.control_layout.addWidget(QLabel(" タグ:"))
         self.control_layout.addWidget(self.tag_combo)
         self.sort_combo = QComboBox()
         self.sort_combo.addItems(
             ["日付が新しい順", "日付が古い順", "評価が高い順", "タイトル順"]
         )
         self.sort_combo.currentIndexChanged.connect(self.refresh_grid)
-        self.control_layout.addWidget(QLabel(" 並び替え:"))
         self.control_layout.addWidget(self.sort_combo)
         self.main_layout.addLayout(self.control_layout)
         self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimumHeight(20)
         self.progress_bar.setVisible(False)
         self.main_layout.addWidget(self.progress_bar)
         self.scroll = QScrollArea()
@@ -230,223 +200,180 @@ class App(QWidget):
         self.main_layout.addWidget(self.scroll)
         self.refresh_tag_combo()
         self.refresh_grid()
-        self.check_updates()
 
     def check_updates(self):
         self.update_checker = UpdateChecker()
-        self.update_checker.new_version_found.connect(self.show_update_bar)
+        self.update_checker.new_version_found.connect(
+            lambda v: (
+                self.update_label.setText(f"新バージョン {v} があります"),
+                self.update_info_bar.setVisible(True),
+            )
+        )
         self.update_checker.start()
-
-    def show_update_bar(self, latest_version):
-        self.update_label.setText(f"新しいバージョン {latest_version} が利用可能です。")
-        self.update_info_bar.setVisible(True)
 
     def refresh_tag_combo(self):
         self.tag_combo.blockSignals(True)
         self.tag_combo.clear()
         self.tag_combo.addItem("すべてのタグ")
         conn = connect_db()
-        rows = conn.execute(
-            "SELECT tags FROM loans WHERE tags IS NOT NULL AND tags != ''"
-        ).fetchall()
-        conn.close()
-        unique_tags = sorted(
-            list(set(t.strip() for r in rows for t in r[0].split(",") if t.strip()))
+        tags = set(
+            t.strip()
+            for r in conn.execute("SELECT tags FROM loans WHERE tags != ''").fetchall()
+            for t in r[0].split(",")
         )
-        self.tag_combo.addItems(unique_tags)
+        conn.close()
+        self.tag_combo.addItems(sorted(list(tags)))
         self.tag_combo.blockSignals(False)
 
     def select_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "CSV選択", "", "CSV (*.csv)")
-        if path != "":
-            self.start_import(path)
-
-    def start_import(self, path):
-        self.progress_bar.setValue(0)
-        self.progress_bar.setVisible(True)
-        QApplication.processEvents()
-        self.worker = ImportWorker(path)
-        self.worker.progress.connect(self.progress_bar.setValue)
-        self.worker.finished.connect(self.on_import_finished)
-        self.worker.start()
-
-    def on_import_finished(self):
-        self.progress_bar.setVisible(False)
-        self.refresh_tag_combo()
-        self.refresh_grid()
+        if path:
+            self.progress_bar.setValue(0)
+            self.progress_bar.setVisible(True)
+            self.worker = ImportWorker(path)
+            self.worker.progress.connect(self.progress_bar.setValue)
+            self.worker.finished.connect(
+                lambda: (
+                    self.progress_bar.setVisible(False),
+                    self.refresh_tag_combo(),
+                    self.refresh_grid(),
+                )
+            )
+            self.worker.start()
 
     def confirm_clear_db(self):
-        reply = QMessageBox.question(
-            self,
-            "確認",
-            "データベース内のすべての貸出記録を削除しますか？\n（取得した書影画像は削除されません）",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
-        )
-        if reply == QMessageBox.Yes:
+        if QMessageBox.Yes == QMessageBox.question(
+            self, "確認", "全記録を削除しますか？"
+        ):
             clear_database()
             self.refresh_tag_combo()
             self.refresh_grid()
 
-    def clear_layout(self, layout):
-        while layout.count() > 0:
-            item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-    def show_statistics(self):
-        conn = connect_db()
-        author_data = get_author_loan_counts(conn)
-        monthly_data = get_monthly_loan_counts(conn)
-        conn.close()
-        dialog = QDialog(self)
-        dialog.setWindowTitle("貸出傾向分析")
-        dialog.resize(900, 700)
-        layout = QVBoxLayout(dialog)
-        if not author_data and not monthly_data:
-            layout.addWidget(QLabel("表示するデータがありません。"))
-            dialog.exec()
-            return
-        if author_data:
-            fig_author = Figure(figsize=(8, 4))
-            canvas_author = FigureCanvas(fig_author)
-            ax_author = fig_author.add_subplot(111)
-            authors, counts = zip(*author_data)
-            ax_author.barh(authors, counts, color="#648fff")
-            ax_author.set_title("著者別貸出頻度（上位20）")
-            ax_author.set_xlabel("貸出回数")
-            ax_author.set_ylabel("著者")
-            ax_author.grid(axis="x", linestyle="--", alpha=0.4)
-            ax_author.invert_yaxis()
-            fig_author.tight_layout()
-            layout.addWidget(canvas_author)
-        if monthly_data:
-            fig_month = Figure(figsize=(8, 4))
-            canvas_month = FigureCanvas(fig_month)
-            ax_month = fig_month.add_subplot(111)
-            months, counts = zip(*monthly_data)
-            x_values = list(range(len(months)))
-            ax_month.plot(x_values, counts, marker="o", linestyle="-", color="#dd8452")
-            ax_month.set_title("月別貸出冊数推移")
-            ax_month.set_xlabel("年月")
-            ax_month.set_ylabel("貸出冊数")
-            ax_month.set_xticks(x_values)
-            ax_month.set_xticklabels(months, rotation=45, ha="right")
-            ax_month.grid(True, linestyle="--", alpha=0.4)
-            fig_month.tight_layout()
-            layout.addWidget(canvas_month)
-        dialog.exec()
-
     def refresh_grid(self):
-        self.clear_layout(self.grid_layout)
-        query = "SELECT id, title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, volume, published_at, tags FROM loans"
-        conds = []
-        params = []
-        if self.filter_combo.currentIndex() == 1:
-            conds.append("(review IS NOT NULL AND review != '')")
-        elif self.filter_combo.currentIndex() == 2:
-            conds.append("(review IS NULL OR review = '')")
-        if self.tag_combo.currentIndex() > 0:
-            conds.append("tags LIKE ?")
-            params.append(f"%{self.tag_combo.currentText()}%")
-        if conds:
-            query += " WHERE " + " AND ".join(conds)
-        query += " GROUP BY material_id"
-        sort_map = {
+        [
+            self.grid_layout.takeAt(0).widget().deleteLater()
+            for _ in range(self.grid_layout.count())
+            if self.grid_layout.itemAt(0).widget()
+        ]
+        conds = (
+            ["(review != '')"]
+            if self.filter_combo.currentIndex() == 1
+            else ["(review = '' OR review IS NULL)"]
+            if self.filter_combo.currentIndex() == 2
+            else []
+        ) + (["tags LIKE ?"] if self.tag_combo.currentIndex() > 0 else [])
+        params = (
+            [f"%{self.tag_combo.currentText()}%"]
+            if self.tag_combo.currentIndex() > 0
+            else []
+        )
+        sort = {
             0: "MAX(loan_date) DESC",
             1: "MAX(loan_date) ASC",
             2: "rating DESC, MAX(loan_date) DESC",
             3: "title ASC",
-        }
-        query += f" ORDER BY {sort_map.get(self.sort_combo.currentIndex(), 'MAX(loan_date) DESC')}"
+        }[self.sort_combo.currentIndex()]
         conn = connect_db()
-        rows = conn.execute(query, params).fetchall()
+        rows = conn.execute(
+            f"SELECT * FROM loans {'WHERE ' + ' AND '.join(conds) if conds else ''} GROUP BY material_id ORDER BY {sort}",
+            params,
+        ).fetchall()
         conn.close()
-        for i, row in enumerate(rows):
-            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
+        [
+            self.grid_layout.addWidget(BookWidget(r, self.show_detail), i // 5, i % 5)
+            for i, r in enumerate(rows)
+        ]
 
-    def show_detail(self, material_id):
+    def show_detail(self, mid):
         conn = connect_db()
         book = conn.execute(
-            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags, volume, published_at FROM loans WHERE material_id=?",
-            (material_id,),
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans WHERE material_id=?",
+            (mid,),
         ).fetchone()
-        dates_rows = conn.execute(
-            "SELECT loan_date FROM loans WHERE material_id=? ORDER BY loan_date DESC",
-            (material_id,),
-        ).fetchall()
-        dates = [r[0] for r in dates_rows]
+        dates = [
+            r[0]
+            for r in conn.execute(
+                "SELECT loan_date FROM loans WHERE material_id=? ORDER BY loan_date DESC",
+                (mid,),
+            ).fetchall()
+        ]
         conn.close()
-        if book is None:
+        if not book:
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("書籍詳細")
         dialog.setMinimumWidth(600)
-        main_h = QHBoxLayout(dialog)
-        left = QVBoxLayout()
+        layout = QHBoxLayout(dialog)
         img_l = QLabel()
-        img_p = resource_path("assets", "img", "no-image.png")
-        if book[8] and os.path.exists(book[8]):
-            img_p = book[8]
-        pix = QPixmap(img_p)
-        if pix.isNull():
-            pix = QPixmap(resource_path("assets", "img", "no-image.png"))
         img_l.setPixmap(
-            pix.scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            QPixmap(
+                book[8]
+                if book[8] and os.path.exists(book[8])
+                else resource_path("assets", "img", "no-image.png")
+            ).scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
-        left.addWidget(img_l, alignment=Qt.AlignTop)
-        left.addStretch()
-        main_h.addLayout(left)
+        layout.addWidget(img_l, alignment=Qt.AlignTop)
         right = QVBoxLayout()
-        form_f = QFrame()
-        form_l = QFormLayout(form_f)
-        form_l.addRow("タイトル:", QLabel(book[0]))
-        form_l.addRow("著者:", QLabel(book[1]))
-        form_l.addRow("出版社:", QLabel(book[2]))
-        form_l.addRow("巻情報:", QLabel(book[11] if book[11] else "-"))
-        form_l.addRow("出版年月:", QLabel(book[12] if book[12] else "-"))
-        form_l.addRow("貸出履歴:", QLabel(", ".join(dates)))
-        form_l.addRow("ISBN:", QLabel(book[4] if book[4] else "なし"))
-        form_l.addRow("資料ID:", QLabel(book[6]))
-        url_l = QLabel(f'<a href="{book[7]}">図書館詳細ページへ</a>')
-        url_l.setOpenExternalLinks(True)
-        form_l.addRow("URL:", url_l)
-        star = StarRatingWidget(book[9] if book[9] is not None else 0)
-        form_l.addRow("評価:", star)
-        tag_e = QLineEdit()
-        tag_e.setPlaceholderText("コンマ区切り (例: 技術書, Python)")
-        tag_e.setText(book[10] if book[10] else "")
-        form_l.addRow("タグ:", tag_e)
-        right.addWidget(form_f)
-        right.addWidget(QLabel("感想 / レビュー:"))
-        text_e = QTextEdit()
-        text_e.setText(book[5] if book[5] else "")
+        form = QFormLayout()
+        star = StarRatingWidget(book[9] or 0)
+        tag_e = QLineEdit(book[10] or "")
+        text_e = QTextEdit(book[5] or "")
+        [
+            form.addRow(k, QLabel(str(v)))
+            for k, v in zip(
+                ["タイトル:", "著者:", "貸出履歴:"],
+                [book[0], book[1], ", ".join(dates)],
+            )
+        ]
+        form.addRow("評価:", star)
+        form.addRow("タグ:", tag_e)
+        right.addLayout(form)
         right.addWidget(text_e)
         save_b = QPushButton("変更を保存")
         save_b.clicked.connect(
             lambda: self.save_data(
-                dialog,
-                material_id,
-                text_e.toPlainText(),
-                star.get_rating(),
-                tag_e.text(),
+                dialog, mid, text_e.toPlainText(), star.rating, tag_e.text()
             )
         )
         right.addWidget(save_b)
-        main_h.addLayout(right)
+        layout.addLayout(right)
         dialog.exec()
 
-    def save_data(self, dialog, material_id, text, rating, tags):
+    def save_data(self, diag, mid, txt, rate, tags):
         conn = connect_db()
         conn.execute(
             "UPDATE loans SET review=?, rating=?, tags=? WHERE material_id=?",
-            (text, rating, tags, material_id),
+            (txt, rate, tags, mid),
         )
         conn.commit()
         conn.close()
-        dialog.accept()
+        diag.accept()
         self.refresh_tag_combo()
         self.refresh_grid()
+
+    def show_statistics(self):
+        conn = connect_db()
+        auth, mon = get_author_loan_counts(conn), get_monthly_loan_counts(conn)
+        conn.close()
+        if not auth and not mon:
+            return
+        diag = QDialog(self)
+        diag.resize(900, 700)
+        lay = QVBoxLayout(diag)
+        if auth:
+            fig = Figure(figsize=(8, 4))
+            ax = fig.add_subplot(111)
+            ax.barh(*zip(*auth), color="#648fff")
+            ax.invert_yaxis()
+            lay.addWidget(FigureCanvas(fig))
+        if mon:
+            fig = Figure(figsize=(8, 4))
+            ax = fig.add_subplot(111)
+            ax.plot(range(len(mon)), [c for m, c in mon], marker="o")
+            ax.set_xticks(range(len(mon)))
+            ax.set_xticklabels([m for m, c in mon], rotation=45)
+            lay.addWidget(FigureCanvas(fig))
+        diag.exec()
 
 
 if __name__ == "__main__":

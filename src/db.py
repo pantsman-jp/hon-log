@@ -27,53 +27,41 @@ def init_database(conn):
     conn.execute(
         "CREATE TABLE IF NOT EXISTS loans("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "title TEXT,"
-        "author TEXT,"
-        "publisher TEXT,"
-        "loan_date TEXT,"
-        "isbn TEXT,"
-        "review TEXT,"
-        "material_id TEXT,"
-        "url TEXT,"
-        "image_path TEXT,"
-        "rating INTEGER,"
-        "volume TEXT,"
-        "published_at TEXT,"
-        "tags TEXT,"
-        "UNIQUE(material_id,loan_date)"
-        ")"
+        "title TEXT, author TEXT, publisher TEXT, loan_date TEXT,"
+        "isbn TEXT, review TEXT, material_id TEXT, url TEXT,"
+        "image_path TEXT, rating INTEGER, volume TEXT,"
+        "published_at TEXT, tags TEXT, UNIQUE(material_id,loan_date))"
     )
-    cursor = conn.execute("PRAGMA table_info(loans)")
-    columns = [row[1] for row in cursor.fetchall()]
-    if "rating" not in columns:
-        conn.execute("ALTER TABLE loans ADD COLUMN rating INTEGER DEFAULT 0")
-    if "volume" not in columns:
-        conn.execute("ALTER TABLE loans ADD COLUMN volume TEXT")
-    if "published_at" not in columns:
-        conn.execute("ALTER TABLE loans ADD COLUMN published_at TEXT")
-    if "tags" not in columns:
-        conn.execute("ALTER TABLE loans ADD COLUMN tags TEXT")
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(loans)").fetchall()]
+    [
+        conn.execute(f"ALTER TABLE loans ADD COLUMN {c} {t}")
+        for c, t in [
+            ("rating", "INTEGER DEFAULT 0"),
+            ("volume", "TEXT"),
+            ("published_at", "TEXT"),
+            ("tags", "TEXT"),
+        ]
+        if c not in columns
+    ]
 
 
 def normalize_row(row):
-    return {
-        k.replace("\ufeff", "").strip(): (v or "").strip() for [k, v] in row.items()
-    }
+    return {k.replace("\ufeff", "").strip(): (v or "").strip() for k, v in row.items()}
 
 
 def process_single_loan(row):
     data = normalize_row(row)
-    material_id = data.get("資料ID", "")
-    if material_id == "":
+    if not data.get("資料ID"):
         return None
-    url = data.get("URL", "")
-    html = get_html(url)
-    isbn = get_isbn(url, html)
-    query = " ".join(
-        filter(None, [data.get("タイトル", ""), data.get("著者", "")])
-    ).strip()
-    img_url = extract_image_url(html)
-    img_path = process_thumbnail(isbn, query, img_url)
+    html = get_html(data.get("URL", ""))
+    isbn = get_isbn(data.get("URL", ""), html)
+    img_path = process_thumbnail(
+        isbn,
+        " ".join(
+            filter(None, [data.get("タイトル", ""), data.get("著者", "")])
+        ).strip(),
+        extract_image_url(html),
+    )
     return (
         data.get("タイトル", ""),
         data.get("著者", ""),
@@ -81,8 +69,8 @@ def process_single_loan(row):
         data.get("貸出日", ""),
         isbn,
         "",
-        material_id,
-        url,
+        data.get("資料ID", ""),
+        data.get("URL", ""),
         img_path,
         0,
         data.get("巻情報", ""),
@@ -94,25 +82,16 @@ def process_single_loan(row):
 def insert_loans_parallel(rows, callback):
     conn = connect_db()
     init_database(conn)
-    total = len(rows)
-    if total == 0:
+    if not rows:
         conn.close()
         return
-
-    results = []
-    with ThreadPoolExecutor(max_workers=min(3, total)) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(process_single_loan, row) for row in rows]
-        completed = 0
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-            except Exception:
-                result = None
-            if result is not None:
-                results.append(result)
-            completed += 1
-            callback(completed, total)
-
+        results = [
+            f.result()
+            for i, f in enumerate(as_completed(futures), 1)
+            if (callback(int(i / len(rows) * 100)) or True) and f.result()
+        ]
     if results:
         conn.executemany(LOAN_INSERT_SQL, results)
     conn.commit()
