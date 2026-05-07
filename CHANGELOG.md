@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [v2.2.1](https://github.com/pantsman-jp/hon-log/releases/tag/v2.2.1) (2026-05-07)
+
+### 修正
+
+- 統計画面で日本語ラベルが□の四角になって表示される問題を修正
+  - Matplotlib のフォント設定を日本語対応にし、著者別貸出頻度グラフと月別貸出冊数推移グラフを正しく表示
+
 ## [v2.2.0](https://github.com/pantsman-jp/hon-log/releases/tag/v2.2.0) (2026-05-01)
 
 ### 追加

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
+import matplotlib as mpl
 from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
@@ -36,8 +37,18 @@ from src.db import (
 from src.stats import get_author_loan_counts, get_monthly_loan_counts
 from src.utils import get_latest_version, resource_path
 
-VERSION = "v2.2.0"
+VERSION = "v2.2.1"
 REPO_URL = "pantsman-jp/hon-log"
+
+mpl.rcParams["font.family"] = "sans-serif"
+mpl.rcParams["font.sans-serif"] = [
+    "Noto Sans CJK JP",
+    "IPAPGothic",
+    "TakaoPGothic",
+    "Arial Unicode MS",
+    "DejaVu Sans",
+]
+mpl.rcParams["axes.unicode_minus"] = False
 
 
 class UpdateChecker(QThread):
@@ -301,10 +312,12 @@ class App(QWidget):
             canvas_author = FigureCanvas(fig_author)
             ax_author = fig_author.add_subplot(111)
             authors, counts = zip(*author_data)
+            ax_author.barh(authors, counts, color="#648fff")
             ax_author.set_title("著者別貸出頻度（上位20）")
             ax_author.set_xlabel("貸出回数")
             ax_author.set_ylabel("著者")
             ax_author.grid(axis="x", linestyle="--", alpha=0.4)
+            ax_author.invert_yaxis()
             fig_author.tight_layout()
             layout.addWidget(canvas_author)
         if monthly_data:
@@ -312,11 +325,12 @@ class App(QWidget):
             canvas_month = FigureCanvas(fig_month)
             ax_month = fig_month.add_subplot(111)
             months, counts = zip(*monthly_data)
-            ax_month.plot(months, counts, marker="o", linestyle="-", color="#dd8452")
+            x_values = list(range(len(months)))
+            ax_month.plot(x_values, counts, marker="o", linestyle="-", color="#dd8452")
             ax_month.set_title("月別貸出冊数推移")
             ax_month.set_xlabel("年月")
             ax_month.set_ylabel("貸出冊数")
-            ax_month.set_xticks(months)
+            ax_month.set_xticks(x_values)
             ax_month.set_xticklabels(months, rotation=45, ha="right")
             ax_month.grid(True, linestyle="--", alpha=0.4)
             fig_month.tight_layout()
