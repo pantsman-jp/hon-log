@@ -34,23 +34,37 @@ from src.utils import get_latest_version, resource_path
 
 
 def choose_japanese_font():
-    installed = set(font_manager.get_font_names())
+    installed = {font.name for font in font_manager.fontManager.ttflist}
     candidates = [
-        "MS Gothic",
-        "Yu Gothic",
+        "Noto Sans CJK JP",
+        "Noto Sans JP",
+        "TakaoPGothic",
+        "TakaoGothic",
+        "IPAexGothic",
+        "IPAGothic",
         "Meiryo",
         "Hiragino Sans",
-        "IPAexGothic",
-        "Noto Sans CJK JP",
+        "Yu Gothic",
+        "MS Gothic",
         "DejaVu Sans",
     ]
-    return next((f for f in candidates if f in installed), "sans-serif")
+    for font_name in candidates:
+        if font_name in installed:
+            return font_name
+    for font_name in installed:
+        lower = font_name.lower()
+        if ("noto" in lower) and (("jp" in lower) or ("cjk" in lower)):
+            return font_name
+        if ("ipa" in lower) or ("takao" in lower):
+            return font_name
+    return "DejaVu Sans"
 
 
 JAPANESE_FONT = choose_japanese_font()
-mpl.rcParams["font.family"] = JAPANESE_FONT
+mpl.rcParams["font.family"] = [JAPANESE_FONT, "sans-serif"]
+mpl.rcParams["font.sans-serif"] = [JAPANESE_FONT, "DejaVu Sans"]
 mpl.rcParams["axes.unicode_minus"] = False
-VERSION = "v2.2.1"
+VERSION = "v2.3.1"
 REPO_URL = "pantsman-jp/hon-log"
 
 APP_STYLE = """
@@ -268,6 +282,8 @@ class ImportWorker(QThread):
 
 
 class BookWidget(QFrame):
+    CARD_WIDTH = 176
+
     def __init__(self, row, on_click):
         super().__init__()
         self.row = row
@@ -277,12 +293,12 @@ class BookWidget(QFrame):
     def init_ui(self):
         self.setObjectName("BookCard")
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedSize(176, 292)
+        self.setFixedSize(self.CARD_WIDTH, 328)
         self.setAttribute(Qt.WA_Hover, True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 14, 14, 12)
-        layout.setSpacing(9)
+        layout.setSpacing(7)
         layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
         img_label = QLabel()
@@ -303,7 +319,7 @@ class BookWidget(QFrame):
 
         title_label = QLabel(self.row[1])
         title_label.setObjectName("BookTitle")
-        title_label.setFixedSize(148, 42)
+        title_label.setFixedSize(148, 46)
         title_label.setWordWrap(True)
         title_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         title_label.setToolTip(self.row[1])
@@ -378,6 +394,8 @@ class App(QWidget):
         self.resize(1100, 800)
         self.setObjectName("AppRoot")
         self.setStyleSheet(APP_STYLE)
+        self.current_rows = []
+        self.grid_columns = 0
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(22, 18, 22, 22)
         self.main_layout.setSpacing(16)
@@ -393,6 +411,13 @@ class App(QWidget):
         if tooltip:
             button.setToolTip(tooltip)
         return button
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "grid_layout") and self.grid_columns:
+            columns = self.calculate_grid_columns()
+            if columns != self.grid_columns:
+                self.render_grid(self.current_rows)
 
     def init_ui(self):
         header_layout = QHBoxLayout()
@@ -566,12 +591,39 @@ class App(QWidget):
             self.refresh_tag_combo()
             self.refresh_grid()
 
-    def refresh_grid(self):
+    def clear_grid(self):
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
+    def calculate_grid_columns(self):
+        margins = self.grid_layout.contentsMargins()
+        spacing = max(self.grid_layout.horizontalSpacing(), 0)
+        available_width = (
+            self.scroll.viewport().width() - margins.left() - margins.right()
+        )
+        card_width = BookWidget.CARD_WIDTH
+        return max(1, (available_width + spacing) // (card_width + spacing))
+
+    def render_grid(self, rows):
+        self.clear_grid()
+        columns = self.calculate_grid_columns()
+        self.grid_columns = columns
+
+        if not rows:
+            empty = QLabel("表示できる本がありません")
+            empty.setObjectName("EmptyState")
+            empty.setAlignment(Qt.AlignCenter)
+            self.grid_layout.addWidget(empty, 0, 0, 1, columns)
+            return
+
+        for i, row in enumerate(rows):
+            self.grid_layout.addWidget(
+                BookWidget(row, self.show_detail), i // columns, i % columns
+            )
+
+    def refresh_grid(self):
         conds = (
             ["(review != '')"]
             if self.filter_combo.currentIndex() == 1
@@ -601,17 +653,9 @@ class App(QWidget):
             params,
         ).fetchall()
         conn.close()
+        self.current_rows = rows
         self.result_count.setText(f"{len(rows)}冊")
-
-        if not rows:
-            empty = QLabel("表示できる本がありません")
-            empty.setObjectName("EmptyState")
-            empty.setAlignment(Qt.AlignCenter)
-            self.grid_layout.addWidget(empty, 0, 0, 1, 5)
-            return
-
-        for i, row in enumerate(rows):
-            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
+        self.render_grid(rows)
 
     def show_detail(self, mid):
         conn = connect_db()
