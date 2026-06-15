@@ -20,9 +20,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QLineEdit,
     QMessageBox,
+    QStyle,
 )
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtGui import QFont, QPixmap
 import matplotlib as mpl
 import matplotlib.font_manager as font_manager
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -51,6 +52,190 @@ mpl.rcParams["font.family"] = JAPANESE_FONT
 mpl.rcParams["axes.unicode_minus"] = False
 VERSION = "v2.2.1"
 REPO_URL = "pantsman-jp/hon-log"
+
+APP_STYLE = """
+QWidget#AppRoot,
+QDialog {
+    background: #f7f3ec;
+    color: #232a27;
+    font-size: 14px;
+}
+
+QFrame#Toolbar,
+QFrame#UpdateInfoBar {
+    background: #fffdf8;
+    border: 1px solid #e2dacd;
+    border-radius: 8px;
+}
+
+QFrame#UpdateInfoBar {
+    background: #fff5d8;
+    border-color: #ebcf7a;
+}
+
+QLabel#AppTitle {
+    color: #17211d;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+QLabel#MutedLabel,
+QLabel#BookAuthor,
+QLabel#CountLabel {
+    color: #69746f;
+}
+
+QLabel#DialogTitle {
+    color: #17211d;
+    font-size: 21px;
+    font-weight: 700;
+}
+
+QLabel#SectionLabel {
+    color: #303b36;
+    font-weight: 700;
+}
+
+QLabel#MetaValue {
+    color: #3f4945;
+}
+
+QPushButton {
+    background: #23635f;
+    color: white;
+    border: 1px solid #23635f;
+    border-radius: 6px;
+    padding: 7px 12px;
+    min-height: 28px;
+    font-weight: 700;
+}
+
+QPushButton:hover {
+    background: #2f756d;
+    border-color: #2f756d;
+}
+
+QPushButton:pressed {
+    background: #184c49;
+    border-color: #184c49;
+}
+
+QPushButton#SecondaryButton {
+    background: #fffdf8;
+    color: #26312d;
+    border-color: #cfc5b6;
+}
+
+QPushButton#SecondaryButton:hover {
+    background: #f0e9df;
+}
+
+QPushButton#DangerButton {
+    background: #b64b45;
+    border-color: #b64b45;
+}
+
+QPushButton#DangerButton:hover {
+    background: #9f3d39;
+    border-color: #9f3d39;
+}
+
+QComboBox,
+QLineEdit,
+QTextEdit {
+    background: #fffdf8;
+    border: 1px solid #cfc5b6;
+    border-radius: 6px;
+    padding: 6px 8px;
+    selection-background-color: #2f756d;
+}
+
+QComboBox:focus,
+QLineEdit:focus,
+QTextEdit:focus {
+    border-color: #2f756d;
+}
+
+QComboBox {
+    min-height: 30px;
+}
+
+QTextEdit {
+    min-height: 160px;
+}
+
+QProgressBar {
+    background: #e8dfd2;
+    border: none;
+    border-radius: 5px;
+    height: 10px;
+    color: transparent;
+}
+
+QProgressBar::chunk {
+    background: #2f756d;
+    border-radius: 5px;
+}
+
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+
+QWidget#GridContainer {
+    background: transparent;
+}
+
+QFrame#BookCard {
+    background: #fffdf8;
+    border: 1px solid #e2dacd;
+    border-radius: 8px;
+}
+
+QFrame#BookCard:hover {
+    border-color: #9dbdb4;
+    background: #ffffff;
+}
+
+QLabel#CoverImage {
+    background: #eee7dc;
+    border: 1px solid #ded3c3;
+    border-radius: 5px;
+}
+
+QLabel#BookTitle {
+    color: #1d2723;
+    font-weight: 700;
+}
+
+QLabel#BookRating {
+    color: #b57724;
+    font-weight: 700;
+}
+
+QLabel#EmptyState {
+    color: #69746f;
+    font-size: 17px;
+    padding: 80px;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 12px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: #c8bcae;
+    border-radius: 6px;
+    min-height: 34px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}
+"""
 
 
 class UpdateChecker(QThread):
@@ -82,32 +267,75 @@ class ImportWorker(QThread):
             self.finished.emit()
 
 
-class BookWidget(QWidget):
+class BookWidget(QFrame):
     def __init__(self, row, on_click):
         super().__init__()
         self.row = row
-        self.init_ui(on_click)
+        self.on_click = on_click
+        self.init_ui()
 
-    def init_ui(self, on_click):
+    def init_ui(self):
+        self.setObjectName("BookCard")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(176, 292)
+        self.setAttribute(Qt.WA_Hover, True)
+
         layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(14, 14, 14, 12)
+        layout.setSpacing(9)
+        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
         img_label = QLabel()
+        img_label.setObjectName("CoverImage")
+        img_label.setFixedSize(132, 176)
+        img_label.setAlignment(Qt.AlignCenter)
         path = (
             self.row[9]
             if self.row[9] and os.path.exists(self.row[9])
             else resource_path("assets", "img", "no-image.png")
         )
-        pix = QPixmap(path).scaled(
-            120, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
-        img_label.setPixmap(pix)
-        img_label.mousePressEvent = lambda e: on_click(self.row[7])
+        pix = QPixmap(path)
+        if not pix.isNull():
+            img_label.setPixmap(
+                pix.scaled(124, 168, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
         layout.addWidget(img_label, alignment=Qt.AlignCenter)
+
         title_label = QLabel(self.row[1])
-        title_label.setFixedWidth(120)
+        title_label.setObjectName("BookTitle")
+        title_label.setFixedSize(148, 42)
         title_label.setWordWrap(True)
-        title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title_label, alignment=Qt.AlignCenter)
+        title_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        title_label.setToolTip(self.row[1])
+        layout.addWidget(title_label)
+
+        author_label = QLabel(self.row[2] or "著者未登録")
+        author_label.setObjectName("BookAuthor")
+        author_label.setFixedSize(148, 32)
+        author_label.setWordWrap(True)
+        author_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        author_label.setToolTip(self.row[2] or "")
+        layout.addWidget(author_label)
+
+        footer = QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(6)
+        rating = self.row[10] or 0
+        rating_label = QLabel("★" * rating if rating else "未評価")
+        rating_label.setObjectName("BookRating")
+        rating_label.setFixedHeight(20)
+        footer.addWidget(rating_label)
+        footer.addStretch()
+        date_label = QLabel(self.row[4] or "")
+        date_label.setObjectName("MutedLabel")
+        date_label.setFixedHeight(20)
+        footer.addWidget(date_label)
+        layout.addLayout(footer)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.on_click(self.row[7])
+        super().mousePressEvent(event)
 
 
 class StarRatingWidget(QWidget):
@@ -148,54 +376,143 @@ class App(QWidget):
         init_database(connect_db())
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
+        self.setObjectName("AppRoot")
+        self.setStyleSheet(APP_STYLE)
         self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(22, 18, 22, 22)
+        self.main_layout.setSpacing(16)
         self.init_ui()
         self.check_updates()
 
+    def configure_button(self, button, icon=None, object_name=None, tooltip=None):
+        if object_name:
+            button.setObjectName(object_name)
+        if icon is not None:
+            button.setIcon(self.style().standardIcon(icon))
+            button.setIconSize(QSize(16, 16))
+        if tooltip:
+            button.setToolTip(tooltip)
+        return button
+
     def init_ui(self):
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(2, 0, 2, 0)
+        title_block = QVBoxLayout()
+        title_block.setSpacing(2)
+        title = QLabel("ほんろぐ")
+        title.setObjectName("AppTitle")
+        version = QLabel(f"{VERSION}  読書履歴")
+        version.setObjectName("MutedLabel")
+        title_block.addWidget(title)
+        title_block.addWidget(version)
+        header_layout.addLayout(title_block)
+        header_layout.addStretch()
+        self.main_layout.addLayout(header_layout)
+
         self.update_info_bar = QFrame()
+        self.update_info_bar.setObjectName("UpdateInfoBar")
         self.update_info_bar.setVisible(False)
-        self.update_info_bar.setStyleSheet("background-color: #fff3cd;")
         up_layout = QHBoxLayout(self.update_info_bar)
+        up_layout.setContentsMargins(14, 10, 14, 10)
+        up_layout.setSpacing(10)
         self.update_label = QLabel()
+        self.update_label.setObjectName("SectionLabel")
         up_layout.addWidget(self.update_label)
+        up_layout.addStretch()
         btn_dl = QPushButton("ダウンロード")
+        self.configure_button(
+            btn_dl,
+            QStyle.StandardPixmap.SP_DialogSaveButton,
+            "SecondaryButton",
+            "最新リリースを開く",
+        )
         btn_dl.clicked.connect(
             lambda: webbrowser.open(f"https://github.com/{REPO_URL}/releases/latest")
         )
         up_layout.addWidget(btn_dl)
         self.main_layout.addWidget(self.update_info_bar)
-        self.control_layout = QHBoxLayout()
+
+        self.control_frame = QFrame()
+        self.control_frame.setObjectName("Toolbar")
+        self.control_layout = QHBoxLayout(self.control_frame)
+        self.control_layout.setContentsMargins(12, 10, 12, 10)
+        self.control_layout.setSpacing(10)
+
         self.btn_update = QPushButton("新規追加 / 更新")
+        self.configure_button(
+            self.btn_update,
+            QStyle.StandardPixmap.SP_DialogOpenButton,
+            tooltip="CSVを選択",
+        )
         self.btn_update.clicked.connect(self.select_csv)
         self.control_layout.addWidget(self.btn_update)
+
         self.btn_clear = QPushButton("全削除")
+        self.configure_button(
+            self.btn_clear,
+            QStyle.StandardPixmap.SP_TrashIcon,
+            "DangerButton",
+            "保存済みの記録を削除",
+        )
         self.btn_clear.clicked.connect(self.confirm_clear_db)
         self.control_layout.addWidget(self.btn_clear)
+
         self.btn_stats = QPushButton("統計")
+        self.configure_button(
+            self.btn_stats,
+            QStyle.StandardPixmap.SP_FileDialogDetailedView,
+            "SecondaryButton",
+            "統計を表示",
+        )
         self.btn_stats.clicked.connect(self.show_statistics)
         self.control_layout.addWidget(self.btn_stats)
+
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("タイトル・著者・タグを検索")
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.setMinimumWidth(220)
+        self.search_edit.textChanged.connect(lambda _: self.refresh_grid())
+        self.control_layout.addWidget(self.search_edit, 1)
+
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["すべて表示", "感想あり", "未入力のみ"])
         self.filter_combo.currentIndexChanged.connect(self.refresh_grid)
         self.control_layout.addWidget(self.filter_combo)
+
         self.tag_combo = QComboBox()
+        self.tag_combo.setMinimumWidth(145)
         self.tag_combo.currentIndexChanged.connect(self.refresh_grid)
         self.control_layout.addWidget(self.tag_combo)
+
         self.sort_combo = QComboBox()
         self.sort_combo.addItems(
             ["日付が新しい順", "日付が古い順", "評価が高い順", "タイトル順"]
         )
+        self.sort_combo.setMinimumWidth(145)
         self.sort_combo.currentIndexChanged.connect(self.refresh_grid)
         self.control_layout.addWidget(self.sort_combo)
-        self.main_layout.addLayout(self.control_layout)
+
+        self.result_count = QLabel()
+        self.result_count.setObjectName("CountLabel")
+        self.result_count.setMinimumWidth(44)
+        self.result_count.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.control_layout.addWidget(self.result_count)
+        self.main_layout.addWidget(self.control_frame)
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.main_layout.addWidget(self.progress_bar)
+
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.grid_container = QWidget()
+        self.grid_container.setObjectName("GridContainer")
         self.grid_layout = QGridLayout(self.grid_container)
+        self.grid_layout.setContentsMargins(4, 4, 4, 4)
+        self.grid_layout.setHorizontalSpacing(18)
+        self.grid_layout.setVerticalSpacing(18)
+        self.grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.scroll.setWidget(self.grid_container)
         self.main_layout.addWidget(self.scroll)
         self.refresh_tag_combo()
@@ -250,11 +567,11 @@ class App(QWidget):
             self.refresh_grid()
 
     def refresh_grid(self):
-        [
-            self.grid_layout.takeAt(0).widget().deleteLater()
-            for _ in range(self.grid_layout.count())
-            if self.grid_layout.itemAt(0).widget()
-        ]
+        while self.grid_layout.count():
+            item = self.grid_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
         conds = (
             ["(review != '')"]
             if self.filter_combo.currentIndex() == 1
@@ -267,6 +584,11 @@ class App(QWidget):
             if self.tag_combo.currentIndex() > 0
             else []
         )
+        search_text = self.search_edit.text().strip()
+        if search_text:
+            conds.append("(title LIKE ? OR author LIKE ? OR tags LIKE ?)")
+            params.extend([f"%{search_text}%"] * 3)
+
         sort = {
             0: "MAX(loan_date) DESC",
             1: "MAX(loan_date) ASC",
@@ -279,15 +601,22 @@ class App(QWidget):
             params,
         ).fetchall()
         conn.close()
-        [
-            self.grid_layout.addWidget(BookWidget(r, self.show_detail), i // 5, i % 5)
-            for i, r in enumerate(rows)
-        ]
+        self.result_count.setText(f"{len(rows)}冊")
+
+        if not rows:
+            empty = QLabel("表示できる本がありません")
+            empty.setObjectName("EmptyState")
+            empty.setAlignment(Qt.AlignCenter)
+            self.grid_layout.addWidget(empty, 0, 0, 1, 5)
+            return
+
+        for i, row in enumerate(rows):
+            self.grid_layout.addWidget(BookWidget(row, self.show_detail), i // 5, i % 5)
 
     def show_detail(self, mid):
         conn = connect_db()
         book = conn.execute(
-            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags FROM loans WHERE material_id=?",
+            "SELECT title, author, publisher, loan_date, isbn, review, material_id, url, image_path, rating, tags, volume, published_at FROM loans WHERE material_id=? ORDER BY loan_date DESC LIMIT 1",
             (mid,),
         ).fetchone()
         dates = [
@@ -302,40 +631,104 @@ class App(QWidget):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("書籍詳細")
-        dialog.setMinimumWidth(600)
+        dialog.setStyleSheet(APP_STYLE)
+        dialog.setMinimumSize(760, 560)
+        dialog.resize(820, 600)
         layout = QHBoxLayout(dialog)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(24)
+
         img_l = QLabel()
-        img_l.setPixmap(
-            QPixmap(
-                book[8]
-                if book[8] and os.path.exists(book[8])
-                else resource_path("assets", "img", "no-image.png")
-            ).scaled(200, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        img_l.setObjectName("CoverImage")
+        img_l.setFixedSize(220, 304)
+        img_l.setAlignment(Qt.AlignCenter)
+        cover = QPixmap(
+            book[8]
+            if book[8] and os.path.exists(book[8])
+            else resource_path("assets", "img", "no-image.png")
         )
+        if not cover.isNull():
+            img_l.setPixmap(
+                cover.scaled(204, 288, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
         layout.addWidget(img_l, alignment=Qt.AlignTop)
+
         right = QVBoxLayout()
+        right.setSpacing(14)
+
+        title = QLabel(book[0])
+        title.setObjectName("DialogTitle")
+        title.setWordWrap(True)
+        right.addWidget(title)
+
         form = QFormLayout()
+        form.setHorizontalSpacing(16)
+        form.setVerticalSpacing(10)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignTop)
+
+        def meta_label(value):
+            label = QLabel(str(value))
+            label.setObjectName("MetaValue")
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            return label
+
         star = StarRatingWidget(book[9] or 0)
         tag_e = QLineEdit(book[10] or "")
+        tag_e.setPlaceholderText("技術書, お気に入り")
         text_e = QTextEdit(book[5] or "")
-        [
-            form.addRow(k, QLabel(str(v)))
-            for k, v in zip(
-                ["タイトル:", "著者:", "貸出履歴:"],
-                [book[0], book[1], ", ".join(dates)],
-            )
-        ]
+        text_e.setPlaceholderText("感想やメモ")
+
+        for label_text, value in [
+            ("著者:", book[1] or "未登録"),
+            ("出版社:", book[2]),
+            ("巻情報:", book[11]),
+            ("出版年:", book[12]),
+            ("ISBN:", book[4]),
+            ("貸出履歴:", "\n".join(dates)),
+        ]:
+            if value:
+                form.addRow(label_text, meta_label(value))
         form.addRow("評価:", star)
         form.addRow("タグ:", tag_e)
         right.addLayout(form)
+
+        review_label = QLabel("感想")
+        review_label.setObjectName("SectionLabel")
+        right.addWidget(review_label)
         right.addWidget(text_e)
+
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 2, 0, 0)
+        actions.setSpacing(10)
+        if book[7]:
+            open_b = QPushButton("OPACを開く")
+            self.configure_button(
+                open_b,
+                QStyle.StandardPixmap.SP_DialogOpenButton,
+                "SecondaryButton",
+                "OPACページを開く",
+            )
+            open_b.clicked.connect(lambda: webbrowser.open(book[7]))
+            actions.addWidget(open_b)
+        actions.addStretch()
+        close_b = QPushButton("閉じる")
+        self.configure_button(
+            close_b,
+            QStyle.StandardPixmap.SP_DialogCloseButton,
+            "SecondaryButton",
+        )
+        close_b.clicked.connect(dialog.reject)
+        actions.addWidget(close_b)
         save_b = QPushButton("変更を保存")
+        self.configure_button(save_b, QStyle.StandardPixmap.SP_DialogSaveButton)
         save_b.clicked.connect(
             lambda: self.save_data(
                 dialog, mid, text_e.toPlainText(), star.rating, tag_e.text()
             )
         )
-        right.addWidget(save_b)
+        actions.addWidget(save_b)
+        right.addLayout(actions)
         layout.addLayout(right)
         dialog.exec()
 
@@ -343,7 +736,7 @@ class App(QWidget):
         conn = connect_db()
         conn.execute(
             "UPDATE loans SET review=?, rating=?, tags=? WHERE material_id=?",
-            (txt, rate, tags, mid),
+            (txt, rate, tags.strip(), mid),
         )
         conn.commit()
         conn.close()
@@ -356,28 +749,61 @@ class App(QWidget):
         auth, mon = get_author_loan_counts(conn), get_monthly_loan_counts(conn)
         conn.close()
         if not auth and not mon:
+            QMessageBox.information(self, "統計", "表示できる貸出記録がありません。")
             return
         diag = QDialog(self)
+        diag.setWindowTitle("統計")
+        diag.setStyleSheet(APP_STYLE)
         diag.resize(900, 700)
         lay = QVBoxLayout(diag)
+        lay.setContentsMargins(24, 24, 24, 24)
+        lay.setSpacing(18)
+
+        title = QLabel("読書統計")
+        title.setObjectName("DialogTitle")
+        lay.addWidget(title)
+
         if auth:
-            fig = Figure(figsize=(8, 4))
+            fig = Figure(figsize=(8, 3.6), facecolor="#fffdf8")
             ax = fig.add_subplot(111)
-            ax.barh(*zip(*auth), color="#648fff")
+            authors, counts = zip(*auth)
+            ax.barh(authors, counts, color="#2f756d")
             ax.invert_yaxis()
+            ax.set_title("著者別貸出冊数", fontweight="bold")
+            ax.set_xlabel("冊数")
+            ax.grid(axis="x", color="#e3d9ca", linewidth=0.8)
+            ax.set_axisbelow(True)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            fig.tight_layout()
             lay.addWidget(FigureCanvas(fig))
         if mon:
-            fig = Figure(figsize=(8, 4))
+            fig = Figure(figsize=(8, 3.6), facecolor="#fffdf8")
             ax = fig.add_subplot(111)
-            ax.plot(range(len(mon)), [c for m, c in mon], marker="o")
+            ax.plot(
+                range(len(mon)),
+                [c for m, c in mon],
+                marker="o",
+                color="#b57724",
+                linewidth=2.2,
+            )
             ax.set_xticks(range(len(mon)))
             ax.set_xticklabels([m for m, c in mon], rotation=45)
+            ax.set_title("月別貸出冊数", fontweight="bold")
+            ax.set_ylabel("冊数")
+            ax.grid(axis="y", color="#e3d9ca", linewidth=0.8)
+            ax.set_axisbelow(True)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            fig.tight_layout()
             lay.addWidget(FigureCanvas(fig))
         diag.exec()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setFont(QFont(JAPANESE_FONT, 10))
     window = App()
     window.show()
     sys.exit(app.exec())
