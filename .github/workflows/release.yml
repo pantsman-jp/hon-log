@@ -10,41 +10,84 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: hon-log.exe
+            icon: assets/img/favicon.ico
+            add_data: 'assets;assets'
+          - os: macos-latest
+            artifact: hon-log
+            icon: assets/img/icon.icns
+            add_data: 'assets:assets'
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Set up Python
+        run: uv python install 3.12
 
-    - name: Build executable
-      run: pyinstaller src/main.py --onefile --noconfirm --name hon-log --icon="assets/img/favicon.ico" --add-data "assets;assets" --noconsole
+      - name: Install dependencies
+        run: uv sync
 
-    - name: Get version from tag
-      id: version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      shell: bash
+      - name: Build executable
+        run: >
+          uv run pyinstaller src/main.py
+          --onefile
+          --noconfirm
+          --name hon-log
+          --icon="${{ matrix.icon }}"
+          --add-data "${{ matrix.add_data }}"
+          --noconsole
 
-    - name: Create release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: dist/hon-log.exe
-        body: |
-          貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/loan-history) からダウンロードできます。
-          九工大IDでのログインが必要です。
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: dist/${{ matrix.artifact }}
 
-          ## ダウンロード
-          - ### [Windows](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log.exe)
+  release:
+    needs: build
+    runs-on: ubuntu-latest
 
-          ---
-          Copyright (c) 2026 @pantsman-jp
-        token: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-latest
+          path: dist/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-latest
+          path: dist/mac
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/windows/hon-log.exe
+            dist/mac/hon-log
+          body: |
+            貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/loan-history) からダウンロードできます。
+            九工大IDでのログインが必要です。
+
+            ## ダウンロード
+            - ### [Windows](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log.exe)
+            - ### [macOS](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log)
+
+            ---
+            Copyright (c) 2026 @pantsman-jp
+          token: ${{ secrets.GITHUB_TOKEN }}
