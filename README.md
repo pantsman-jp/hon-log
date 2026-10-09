@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org)
 [![GitHub Downloads](https://img.shields.io/github/downloads/pantsman-jp/hon-log/latest/total)](https://github.com/pantsman-jp/hon-log/releases/latest)
 
-[English README](README.en.md)
+[English README](https://github.com/pantsman-jp/hon-log/blob/main/docs/README.en.md)
 
 ## 概要
 

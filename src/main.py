@@ -64,7 +64,7 @@ JAPANESE_FONT = choose_japanese_font()
 mpl.rcParams["font.family"] = [JAPANESE_FONT, "sans-serif"]
 mpl.rcParams["font.sans-serif"] = [JAPANESE_FONT, "DejaVu Sans"]
 mpl.rcParams["axes.unicode_minus"] = False
-VERSION = "v2.3.2"
+VERSION = "v2.3.3"
 REPO_URL = "pantsman-jp/hon-log"
 
 APP_STYLE = """
