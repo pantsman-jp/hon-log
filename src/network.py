@@ -50,4 +50,9 @@ def fetch_content(url, timeout=5):
 
 def fetch_json(url, timeout=10):
     r = fetch(url, timeout=timeout)
-    return r.json() if r and r.status_code == 200 else None
+    if not r or r.status_code != 200:
+        return None
+    try:
+        return r.json()
+    except ValueError:
+        return None

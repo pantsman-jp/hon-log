@@ -10,7 +10,12 @@ def parse_loan_date(s):
         except (ValueError, AttributeError):
             continue
     m = re.search(r"(\d{4})[^0-9]?(\d{1,2})[^0-9]?(\d{1,2})", str(s))
-    return datetime(*map(int, m.groups())).date() if m else None
+    if not m:
+        return None
+    try:
+        return datetime(*map(int, m.groups())).date()
+    except ValueError:
+        return None
 
 
 def get_author_loan_counts(conn, limit=20):

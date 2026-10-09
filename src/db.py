@@ -81,21 +81,23 @@ def process_single_loan(row):
 
 def insert_loans_parallel(rows, callback):
     conn = connect_db()
-    init_database(conn)
-    if not rows:
+    try:
+        init_database(conn)
+        if not rows:
+            return
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(process_single_loan, row) for row in rows]
+            results = []
+            for i, future in enumerate(as_completed(futures), 1):
+                result = future.result()
+                if result:
+                    results.append(result)
+                callback(int(i / len(rows) * 100))
+        if results:
+            conn.executemany(LOAN_INSERT_SQL, results)
+        conn.commit()
+    finally:
         conn.close()
-        return
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(process_single_loan, row) for row in rows]
-        results = [
-            f.result()
-            for i, f in enumerate(as_completed(futures), 1)
-            if (callback(int(i / len(rows) * 100)) or True) and f.result()
-        ]
-    if results:
-        conn.executemany(LOAN_INSERT_SQL, results)
-    conn.commit()
-    conn.close()
 
 
 def clear_database():

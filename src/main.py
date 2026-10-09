@@ -64,7 +64,7 @@ JAPANESE_FONT = choose_japanese_font()
 mpl.rcParams["font.family"] = [JAPANESE_FONT, "sans-serif"]
 mpl.rcParams["font.sans-serif"] = [JAPANESE_FONT, "DejaVu Sans"]
 mpl.rcParams["axes.unicode_minus"] = False
-VERSION = "v2.3.1"
+VERSION = "v2.3.2"
 REPO_URL = "pantsman-jp/hon-log"
 
 APP_STYLE = """
@@ -263,6 +263,7 @@ class UpdateChecker(QThread):
 
 class ImportWorker(QThread):
     progress = Signal(int)
+    failed = Signal(str)
     finished = Signal()
 
     def __init__(self, csv_path):
@@ -275,8 +276,8 @@ class ImportWorker(QThread):
                 insert_loans_parallel(
                     list(csv.DictReader(f)), lambda p: self.progress.emit(p)
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            self.failed.emit(str(exc) or "CSVの読み込み中にエラーが発生しました。")
         finally:
             self.finished.emit()
 
@@ -389,7 +390,11 @@ class StarRatingWidget(QWidget):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        init_database(connect_db())
+        conn = connect_db()
+        try:
+            init_database(conn)
+        finally:
+            conn.close()
         self.setWindowTitle(f"ほんろぐ {VERSION}")
         self.resize(1100, 800)
         self.setObjectName("AppRoot")
@@ -574,6 +579,9 @@ class App(QWidget):
             self.progress_bar.setVisible(True)
             self.worker = ImportWorker(path)
             self.worker.progress.connect(self.progress_bar.setValue)
+            self.worker.failed.connect(
+                lambda message: QMessageBox.warning(self, "CSVの取込に失敗", message)
+            )
             self.worker.finished.connect(
                 lambda: (
                     self.progress_bar.setVisible(False),
@@ -642,14 +650,19 @@ class App(QWidget):
             params.extend([f"%{search_text}%"] * 3)
 
         sort = {
-            0: "MAX(loan_date) DESC",
-            1: "MAX(loan_date) ASC",
-            2: "rating DESC, MAX(loan_date) DESC",
+            0: "loan_date DESC",
+            1: "loan_date ASC",
+            2: "rating DESC, loan_date DESC",
             3: "title ASC",
         }[self.sort_combo.currentIndex()]
         conn = connect_db()
         rows = conn.execute(
-            f"SELECT * FROM loans {'WHERE ' + ' AND '.join(conds) if conds else ''} GROUP BY material_id ORDER BY {sort}",
+            "WITH latest_loans AS ("
+            "SELECT *, ROW_NUMBER() OVER ("
+            "PARTITION BY material_id ORDER BY loan_date DESC, id DESC"
+            ") AS row_number FROM loans"
+            ") "
+            f"SELECT * FROM latest_loans WHERE row_number = 1 {'AND ' + ' AND '.join(conds) if conds else ''} ORDER BY {sort}",
             params,
         ).fetchall()
         conn.close()
