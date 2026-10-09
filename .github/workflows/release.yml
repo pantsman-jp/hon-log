@@ -18,7 +18,7 @@ jobs:
             icon: assets/img/favicon.ico
             add_data: 'assets;assets'
           - os: macos-latest
-            artifact: hon-log
+            artifact: hon-log-macos.zip
             icon: assets/img/icon.icns
             add_data: 'assets:assets'
 
@@ -37,7 +37,8 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Build executable
+      - name: Build Windows executable
+        if: matrix.os == 'windows-latest'
         run: >
           uv run pyinstaller src/main.py
           --onefile
@@ -46,6 +47,24 @@ jobs:
           --icon="${{ matrix.icon }}"
           --add-data "${{ matrix.add_data }}"
           --noconsole
+
+      - name: Build macOS app bundle
+        if: matrix.os == 'macos-latest'
+        run: >
+          uv run pyinstaller src/main.py
+          --onedir
+          --noconfirm
+          --name hon-log
+          --icon="${{ matrix.icon }}"
+          --add-data "${{ matrix.add_data }}"
+          --windowed
+          --osx-bundle-identifier jp.pantsman.hon-log
+
+      - name: Package macOS app
+        if: matrix.os == 'macos-latest'
+        run: >
+          ditto -c -k --sequesterRsrc --keepParent
+          dist/hon-log.app dist/hon-log-macos.zip
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -79,14 +98,14 @@ jobs:
         with:
           files: |
             dist/windows/hon-log.exe
-            dist/mac/hon-log
+            dist/mac/hon-log-macos.zip
           body: |
             貸出履歴は [こちら](https://www.lib.kyutech.ac.jp/opac/user/loan-history) からダウンロードできます。
             九工大IDでのログインが必要です。
 
             ## ダウンロード
             - ### [Windows](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log.exe)
-            - ### [macOS](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log)
+            - ### [macOS](https://github.com/pantsman-jp/hon-log/releases/download/${{ steps.version.outputs.VERSION }}/hon-log-macos.zip)
 
             ---
             Copyright (c) 2026 @pantsman-jp
