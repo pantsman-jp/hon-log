@@ -4,10 +4,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.isbn import extract_image_url, get_html, get_isbn
 from src.thumbnail import get_app_dir, process_thumbnail
 
-LOAN_INSERT_SQL = """INSERT OR IGNORE INTO loans(
+LOAN_INSERT_SQL = """INSERT INTO loans(
     title, author, publisher, loan_date, isbn, review, material_id,
     url, image_path, rating, volume, published_at, tags
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(material_id, loan_date) DO UPDATE SET
+    isbn = COALESCE(NULLIF(excluded.isbn, ''), isbn),
+    url = COALESCE(NULLIF(excluded.url, ''), url),
+    image_path = COALESCE(NULLIF(excluded.image_path, ''), image_path)"""
 
 
 def get_db_path():
@@ -61,6 +65,7 @@ def process_single_loan(row):
             filter(None, [data.get("タイトル", ""), data.get("著者", "")])
         ).strip(),
         extract_image_url(html),
+        data.get("URL", ""),
     )
     return (
         data.get("タイトル", ""),

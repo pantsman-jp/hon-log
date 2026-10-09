@@ -3,6 +3,15 @@ import re
 from bs4 import BeautifulSoup
 from src.network import fetch_text
 
+PLACEHOLDER_IMAGE_MARKERS = (
+    "bookimage-",
+    "no-image",
+    "no_image",
+    "noimage",
+    "placeholder",
+    "default-cover",
+)
+
 
 @functools.lru_cache(maxsize=128)
 def get_html(url):
@@ -27,34 +36,47 @@ def parse_isbn(html):
     return m.group(0) if m else ""
 
 
+def is_placeholder_image_url(url):
+    return any(marker in (url or "").lower() for marker in PLACEHOLDER_IMAGE_MARKERS)
+
+
+def _image_url(tag):
+    if not tag:
+        return ""
+    url = (
+        tag.get("data-src")
+        or tag.get("data-original")
+        or tag.get("src")
+        or tag.get("value")
+        or ""
+    ).strip()
+    return "" if is_placeholder_image_url(url) else url
+
+
 def extract_image_url(html):
     if not html:
         return ""
     soup = BeautifulSoup(html, "html.parser")
     og = soup.find("meta", property="og:image")
     tw = soup.find("meta", attrs={"name": "twitter:image"})
-    if og and og.get("content"):
-        return og.get("content").strip()
-    if tw and tw.get("content"):
-        return tw.get("content").strip()
-    img = (
-        soup.find("img", {"id": "coverImage"})
-        or soup.find("img", {"class": "cover"})
-        or soup.find("img", {"class": "book-cover"})
-    )
-    if img and img.get("src"):
-        return img.get("src").strip()
-    return next(
-        (
-            i.get("src") or i.get("data-src")
-            for i in soup.find_all("img")
-            if any(
-                k in (i.get("src") or "").lower()
-                for k in ("cover", "thumbnail", "book")
-            )
-        ),
-        "",
-    )
+    for tag in (og, tw):
+        url = _image_url(tag)
+        if url:
+            return url
+    for tag in (
+        soup.select_one("input.l_limedio_thumbnail_url"),
+        soup.find("img", {"id": "coverImage"}),
+        soup.find("img", {"class": "cover"}),
+        soup.find("img", {"class": "book-cover"}),
+    ):
+        url = _image_url(tag)
+        if url:
+            return url
+    for image in soup.find_all("img"):
+        url = _image_url(image)
+        if url and any(key in url.lower() for key in ("cover", "thumbnail", "book")):
+            return url
+    return ""
 
 
 @functools.lru_cache(maxsize=256)

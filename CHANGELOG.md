@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [v2.3.3](https://github.com/pantsman-jp/hon-log/releases/tag/v2.3.3) (2026-10-09)
+
+### 修正
+
+- NDL 書影エンドポイントが拒否する HTTP ヘッダを修正し、書影を再び取得できるように変更
+- OPAC の共通プレースホルダーを書影として保存しないようにし、無効・相対 URL・画像以外のレスポンスでは Google Books、NDL、Open Library へ順にフォールバックするように変更
+- 過去に保存した誤った書影を再取り込み時に更新できるよう、書影キャッシュを世代更新し、既存レコードの書影パスを更新するように変更
+
 ## [v2.3.2](https://github.com/pantsman-jp/hon-log/releases/tag/v2.3.2) (2026-10-09)
 
 ### 改善
